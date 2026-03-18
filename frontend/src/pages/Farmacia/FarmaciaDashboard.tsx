@@ -1,71 +1,142 @@
-import { Package, ShoppingBag, Clock, Truck, TrendingUp, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Package, ShoppingBag, Clock, Truck, TrendingUp, Star, AlertCircle } from "lucide-react";
 import { FarmaciaLayout } from "../../layouts/FarmaciaLayout";
+import { farmaciaService, DashboardStats } from "../../services/farmaciaService";
+import { apiRequest } from "../../services/authService";
 
 const GREEN = "#2c5530";
 const GOLD  = "#c7a252";
 
-const statsCards = [
-  {
-    label: "Produtos Cadastrados",
-    value: "48",
-    descricao: "produtos ativos no catálogo",
-    icon: Package,
-    bg: "rgba(44,85,48,0.06)",
-    iconColor: "#2c5530",
-    trend: "+3 este mês",
-    trendColor: "#2c5530",
-    borderColor: "#2c5530",
-  },
-  {
-    label: "Pedidos Recebidos",
-    value: "127",
-    descricao: "pedidos no total",
-    icon: ShoppingBag,
-    bg: "rgba(199,162,82,0.08)",
-    iconColor: "#8a6e25",
-    trend: "+12 esta semana",
-    trendColor: "#8a6e25",
-    borderColor: GOLD,
-  },
-  {
-    label: "Pedidos Pendentes",
-    value: "8",
-    descricao: "aguardando confirmação",
-    icon: Clock,
-    bg: "rgba(212,160,50,0.08)",
-    iconColor: "#b07a1a",
-    trend: "2 urgentes",
-    trendColor: "#b07a1a",
-    borderColor: "#e0a040",
-  },
-  {
-    label: "Entregas em Andamento",
-    value: "5",
-    descricao: "a caminho dos clientes",
-    icon: Truck,
-    bg: "rgba(74,120,86,0.08)",
-    iconColor: "#3a6b50",
-    trend: "estimativa: 30 min",
-    trendColor: "#3a6b50",
-    borderColor: "#4a7856",
-  },
-];
-
-const recentOrders = [
-  { id: "#TC-0045", cliente: "Ana Beatriz",    medicamento: "Paracetamol 500mg × 2", total: 1200, status: "pendente",       hora: "14:23" },
-  { id: "#TC-0044", cliente: "Carlos Mendes",  medicamento: "Amoxicilina 875mg × 1",  total: 3500, status: "em-preparacao", hora: "13:55" },
-  { id: "#TC-0043", cliente: "Maria Fernanda", medicamento: "Ibuprofeno 400mg × 3",   total: 2100, status: "pronto-entrega", hora: "13:10" },
-  { id: "#TC-0042", cliente: "João Pedro",     medicamento: "Omeprazol 20mg × 2",     total: 1800, status: "em-preparacao", hora: "12:48" },
-];
-
 const statusConfig: Record<string, { label: string; bg: string; color: string; border: string }> = {
-  pendente:         { label: "Pendente",      bg: "rgba(212,160,50,0.1)",  color: "#8a6e25",  border: "rgba(212,160,50,0.3)"  },
-  "em-preparacao":  { label: "Em preparação", bg: "rgba(44,85,48,0.08)",   color: "#2c5530",  border: "rgba(44,85,48,0.2)"    },
-  "pronto-entrega": { label: "Pronto",        bg: "rgba(74,120,86,0.1)",   color: "#3a7050",  border: "rgba(74,120,86,0.25)"  },
-  recusado:         { label: "Recusado",      bg: "rgba(212,90,90,0.08)",  color: "#a03030",  border: "rgba(212,90,90,0.25)"  },
+  PENDENTE:         { label: "Pendente",      bg: "rgba(212,160,50,0.1)",  color: "#8a6e25",  border: "rgba(212,160,50,0.3)"  },
+  EM_PREPARACAO:    { label: "Em preparação", bg: "rgba(44,85,48,0.08)",   color: "#2c5530",  border: "rgba(44,85,48,0.2)"    },
+  PRONTO:           { label: "Pronto",        bg: "rgba(74,120,86,0.1)",   color: "#3a7050",  border: "rgba(74,120,86,0.25)"  },
+  EM_TRANSITO:      { label: "Em trânsito",   bg: "rgba(59,130,246,0.1)",  color: "#2563eb",  border: "rgba(59,130,246,0.25)" },
+  RECUSADO:         { label: "Recusado",      bg: "rgba(212,90,90,0.08)",  color: "#a03030",  border: "rgba(212,90,90,0.25)"  },
+  CANCELADO:        { label: "Cancelado",     bg: "rgba(212,90,90,0.08)",  color: "#a03030",  border: "rgba(212,90,90,0.25)"  },
 };
 
 export function FarmaciaDashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentOrders, setRecentOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [statsRes, ordersRes] = await Promise.all([
+        farmaciaService.getDashboardStats(),
+        apiRequest("/farmacia/pedidos", "GET")
+      ]);
+
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+      }
+      
+      if (ordersRes.success && Array.isArray(ordersRes.data)) {
+        setRecentOrders(ordersRes.data.slice(0, 5));
+      }
+
+      if (!statsRes.success && !ordersRes.success) {
+        setError("Erro ao carregar dados do painel");
+      }
+    } catch (err) {
+      setError("Falha na conexão com o servidor");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <FarmaciaLayout>
+        <div className="flex items-center justify-center min-h-screen bg-[#faf7f2]">
+          <div className="twala-loading" />
+        </div>
+      </FarmaciaLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <FarmaciaLayout>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-[#faf7f2] p-6 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Ops! Algo correu mal</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button onClick={fetchDashboardData} className="twala-btn-primary px-8">Tentar Novamente</button>
+        </div>
+      </FarmaciaLayout>
+    );
+  }
+
+  const statsCardsData = [
+    {
+      label: "Produtos Cadastrados",
+      value: stats?.produtosAtivos || 0,
+      descricao: "produtos ativos no catálogo",
+      icon: Package,
+      bg: "rgba(44,85,48,0.06)",
+      iconColor: "#2c5530",
+      trend: "Total Ativo",
+      trendColor: "#2c5530",
+      borderColor: "#2c5530",
+    },
+    {
+      label: "Pedidos Recebidos",
+      value: stats?.pedidosTotais || 0,
+      descricao: "pedidos no total",
+      icon: ShoppingBag,
+      bg: "rgba(199,162,82,0.08)",
+      iconColor: "#8a6e25",
+      trend: "Histórico",
+      trendColor: "#8a6e25",
+      borderColor: GOLD,
+    },
+    {
+      label: "Pedidos Pendentes",
+      value: stats?.pedidosPendentes || 0,
+      descricao: "aguardando confirmação",
+      icon: Clock,
+      bg: "rgba(212,160,50,0.08)",
+      iconColor: "#b07a1a",
+      trend: "Urgente",
+      trendColor: "#b07a1a",
+      borderColor: "#e0a040",
+    },
+    {
+      label: "Entregas em Andamento",
+      value: stats?.entregasAndamento || 0,
+      descricao: "a caminho dos clientes",
+      icon: Truck,
+      bg: "rgba(74,120,86,0.08)",
+      iconColor: "#3a6b50",
+      trend: "Em trânsito",
+      trendColor: "#3a6b50",
+      borderColor: "#4a7856",
+    },
+  ];
+
+  const desempenhoMensal = [
+    {
+      label: "Receita Total", value: `${(stats?.receitaMensal || 0).toLocaleString()} Kz`, trend: "Soma de vendas concluídas",
+      icon: TrendingUp, bg: "rgba(44,85,48,0.06)", color: GREEN, trendColor: GREEN,
+    },
+    {
+      label: "Pedidos Pendentes", value: stats?.pedidosPendentes || 0, trend: "Aguardando processamento",
+      icon: ShoppingBag, bg: "rgba(199,162,82,0.08)", color: "#8a6e25", trendColor: "#8a6e25",
+    },
+    {
+      label: "Avaliação Média", value: `${stats?.avaliacaoMedia || 0} ★`, trend: "Reputação da farmácia",
+      icon: Star, bg: "rgba(212,160,50,0.08)", color: "#b07a1a", trendColor: "#b07a1a",
+    },
+  ];
   return (
     <FarmaciaLayout>
       <div
@@ -101,7 +172,7 @@ export function FarmaciaDashboard() {
 
         {/* ── CARDS DE ESTATÍSTICAS ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-          {statsCards.map((card) => {
+          {statsCardsData.map((card) => {
             const Icon = card.icon;
             return (
               <div
@@ -190,8 +261,15 @@ export function FarmaciaDashboard() {
             </div>
 
             <div className="space-y-3">
-              {recentOrders.map((order) => {
-                const config = statusConfig[order.status];
+              {recentOrders.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-4">Nenhum pedido recente</p>
+              ) : recentOrders.map((order) => {
+                const config = statusConfig[order.status] || statusConfig.PENDENTE;
+                const nomeCliente = order.Cliente?.nome || "Cliente";
+                const totalPedido = Number(order.total || 0);
+                const horaPedido = new Date(order.data_pedido || order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const itensTxt = order.PedidoItems?.map((i: any) => i.nome).join(", ") || "Sem itens";
+
                 return (
                   <div
                     key={order.id}
@@ -215,21 +293,21 @@ export function FarmaciaDashboard() {
                         style={{ backgroundColor: "rgba(44,85,48,0.08)" }}
                       >
                         <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 13, color: GREEN }}>
-                          {order.cliente.charAt(0)}
+                          {nomeCliente.charAt(0)}
                         </span>
                       </div>
                       <div className="min-w-0">
                         <p style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 500, fontSize: 13, color: "#2c3e2c", lineHeight: 1.3 }}>
-                          {order.cliente}
+                          {nomeCliente}
                         </p>
                         <p className="truncate" style={{ fontFamily: "'Roboto', sans-serif", fontSize: 12, color: "#5a6b5a" }}>
-                          {order.medicamento}
+                          {itensTxt}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 ml-3">
                       <span
-                        className="text-xs px-2.5 py-1 rounded-full"
+                        className="text-xs px-2.5 py-1 rounded-full text-center min-w-[100px]"
                         style={{
                           fontFamily: "'Roboto', sans-serif",
                           fontWeight: 500,
@@ -242,10 +320,10 @@ export function FarmaciaDashboard() {
                       </span>
                       <div className="text-right">
                         <p style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: 13, color: "#2c3e2c" }}>
-                          {order.total.toLocaleString()} Kz
+                          {totalPedido.toLocaleString()} Kz
                         </p>
                         <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 11, color: "#7a8a7a" }}>
-                          {order.hora}
+                          {horaPedido}
                         </p>
                       </div>
                     </div>
@@ -264,7 +342,7 @@ export function FarmaciaDashboard() {
               className="mb-1"
               style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, color: "#2c3e2c", fontSize: 17 }}
             >
-              Desempenho Mensal
+              Desempenho Geral
             </h2>
             <div
               className="mb-5"
@@ -272,20 +350,7 @@ export function FarmaciaDashboard() {
             />
 
             <div className="space-y-4">
-              {[
-                {
-                  label: "Receita do Mês", value: "128.500 Kz", trend: "+18% vs mês anterior",
-                  icon: TrendingUp, bg: "rgba(44,85,48,0.06)", color: GREEN, trendColor: GREEN,
-                },
-                {
-                  label: "Pedidos Concluídos", value: "114", trend: "de 127 pedidos recebidos",
-                  icon: ShoppingBag, bg: "rgba(199,162,82,0.08)", color: "#8a6e25", trendColor: "#8a6e25",
-                },
-                {
-                  label: "Avaliação Média", value: "4.7 ★", trend: "baseado em 89 avaliações",
-                  icon: Star, bg: "rgba(212,160,50,0.08)", color: "#b07a1a", trendColor: "#b07a1a",
-                },
-              ].map((m) => {
+              {desempenhoMensal.map((m) => {
                 const Icon = m.icon;
                 return (
                   <div
@@ -313,10 +378,10 @@ export function FarmaciaDashboard() {
               <p
                 style={{ fontFamily: "'Roboto', sans-serif", fontSize: 10, fontWeight: 600, color: "#7a8a7a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}
               >
-                Pedidos por dia (última semana)
+                Volume de Atividades (Última Semana)
               </p>
               <div className="flex items-end gap-1 h-14">
-                {[6, 9, 5, 12, 8, 14, 10].map((val, i) => (
+                {[4, 7, 3, 9, 6, 11, 8].map((val, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center">
                     <div
                       className="w-full rounded-t transition-colors duration-200 cursor-pointer"

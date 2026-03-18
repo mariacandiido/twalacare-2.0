@@ -2,7 +2,7 @@
 // Mostra todas as receitas médicas que o cliente enviou para as farmácias,
 // com o estado de cada uma (pendente, aprovada ou rejeitada).
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FileText,     // ícone de documento/receita
   Building2,    // ícone de farmácia
@@ -15,6 +15,8 @@ import {
   Pill,         // ícone de medicamento
   TrendingUp,   // ícone usado nas observações
 } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { prescriptionService } from "../../services/prescriptionService";
 
 // -------------------------------------------------------
 // TIPOS LOCAIS
@@ -33,56 +35,6 @@ interface Receita {
   status: StatusReceita;         // estado atual da análise da receita
   observacao?: string;           // mensagem opcional da farmácia ao cliente
 }
-
-// -------------------------------------------------------
-// DADOS DE EXEMPLO (mock)
-// Substituir por chamada à API quando o backend estiver pronto
-// -------------------------------------------------------
-const RECEITAS_MOCK: Receita[] = [
-  {
-    id: "R001",
-    imagemUrl: "https://placehold.co/300x200/e8f5e9/16a34a?text=Receita+Médica",
-    medicamentoSolicitado: "Amoxicilina 500mg",
-    farmaciaRecebeu: "Farmácia Saúde",
-    dataEnvio: "2025-02-08",
-    status: "aprovada",
-    observacao: "Receita válida. Medicamento disponível para levantamento.",
-  },
-  {
-    id: "R002",
-    imagemUrl: "https://placehold.co/300x200/e8f5e9/16a34a?text=Receita+Médica",
-    medicamentoSolicitado: "Metformina 850mg",
-    farmaciaRecebeu: "Farmácia Central",
-    dataEnvio: "2025-02-20",
-    status: "pendente",
-  },
-  {
-    id: "R003",
-    imagemUrl: "https://placehold.co/300x200/fef2f2/dc2626?text=Receita+Inválida",
-    medicamentoSolicitado: "Tramadol 50mg",
-    farmaciaRecebeu: "Farmácia Kilamba",
-    dataEnvio: "2025-01-15",
-    status: "rejeitada",
-    observacao: "Receita ilegível. Por favor envie uma imagem mais nítida.",
-  },
-  {
-    id: "R004",
-    imagemUrl: "https://placehold.co/300x200/e8f5e9/16a34a?text=Receita+Médica",
-    medicamentoSolicitado: "Insulina NPH 100UI/ml",
-    farmaciaRecebeu: "Farmácia Talatona",
-    dataEnvio: "2025-03-02",
-    status: "pendente",
-  },
-  {
-    id: "R005",
-    imagemUrl: "https://placehold.co/300x200/e8f5e9/16a34a?text=Receita+Médica",
-    medicamentoSolicitado: "Omeprazol 20mg",
-    farmaciaRecebeu: "Farmácia Saúde",
-    dataEnvio: "2025-03-07",
-    status: "aprovada",
-    observacao: "Aprovada. Entrega agendada para amanhã.",
-  },
-];
 
 // -------------------------------------------------------
 // CONFIGURAÇÃO DE BADGES DE ESTADO
@@ -165,14 +117,49 @@ function ImagemReceita({ src, alt }: { src: string; alt: string }) {
 // COMPONENTE PRINCIPAL — ReceitasEnviadas
 // -------------------------------------------------------
 export function ReceitasEnviadas() {
+  const { user } = useAuth();
+  const [receitas, setReceitas] = useState<Receita[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   // Estado do campo de pesquisa livre (por medicamento, farmácia ou data)
   const [busca, setBusca] = useState("");
 
   // Estado do filtro por estado da receita (padrão: mostrar todas)
   const [filtroStatus, setFiltroStatus] = useState<StatusReceita | "todos">("todos");
 
+  useEffect(() => {
+    const fetchReceitas = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await prescriptionService.getMyPrescriptions();
+        if (res.success && res.data.receitas) {
+          const formatted = res.data.receitas.map((r: any) => ({
+            id: r.id,
+            imagemUrl: r.ficheiro_url || "https://placehold.co/300x200?text=Sem+Imagem",
+            medicamentoSolicitado: r.nome_ficheiro || "Medicamento não especificado",
+            farmaciaRecebeu: r.Farmacia?.nome || `Farmácia #${r.farmacia_id || '?' }`,
+            dataEnvio: r.createdAt?.split('T')[0] || r.data_envio || '',
+            status: r.estado as StatusReceita,
+            observacao: r.observacoes,
+          }));
+          setReceitas(formatted);
+        } else {
+          setError(res.error || "Erro ao carregar receitas");
+        }
+      } catch (err) {
+        setError("Falha na conexão com o servidor");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) fetchReceitas();
+  }, [user]);
+
   // Filtra as receitas com base no texto de pesquisa e no estado selecionado
-  const receitasFiltradas = RECEITAS_MOCK.filter((r) => {
+  const receitasFiltradas = receitas.filter((r) => {
     const termoBusca = busca.toLowerCase();
 
     // Verifica se algum campo da receita contém o termo pesquisado
@@ -189,9 +176,9 @@ export function ReceitasEnviadas() {
   });
 
   // Contagem por estado para os cards de resumo no topo
-  const totalAprovadas = RECEITAS_MOCK.filter((r) => r.status === "aprovada").length;
-  const totalPendentes = RECEITAS_MOCK.filter((r) => r.status === "pendente").length;
-  const totalRejeitadas = RECEITAS_MOCK.filter((r) => r.status === "rejeitada").length;
+  const totalAprovadas = receitas.filter((r) => r.status === "aprovada").length;
+  const totalPendentes = receitas.filter((r) => r.status === "pendente").length;
+  const totalRejeitadas = receitas.filter((r) => r.status === "rejeitada").length;
 
   // Formata a data para o formato angolano: "08 de fevereiro de 2025"
   const formatarData = (data: string) =>
@@ -283,7 +270,22 @@ export function ReceitasEnviadas() {
         </div>
 
         {/* ---- Grelha de receitas ou mensagem de vazio ---- */}
-        {receitasFiltradas.length === 0 ? (
+        {/* Loading / Error States */}
+        {isLoading && (
+          <div className="twala-card text-center py-16">
+            <div className="twala-loading mx-auto mb-4" />
+            <p className="text-gray-500">A carregar receitas...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="twala-card p-6 text-center text-red-500">
+            <p>{error}</p>
+            <button onClick={() => window.location.reload()} className="twala-btn-outline mt-4">Tentar Novamente</button>
+          </div>
+        )}
+
+        {!isLoading && !error && receitasFiltradas.length === 0 ? (
           // Mensagem exibida quando não há receitas a mostrar
           <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-2xl shadow-sm border border-gray-100">
             <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">

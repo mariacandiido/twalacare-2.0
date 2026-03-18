@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   User,
+  Star,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Save,
   Mail,
   Phone,
+  MapPin,
   Bike,
   Car,
-  Save,
-  Star,
-  Banknote,
   PackageCheck,
-  CheckCircle2,
-  AlertCircle,
-  MapPin,
+  Banknote
 } from 'lucide-react';
 import { EntregadorLayout } from '../../layouts/EntregadorLayout';
 import { useEntregadorStore } from '../../store/entregadorStore';
@@ -27,16 +28,27 @@ const veiculos: { valor: TipoVeiculo; label: string; icon: React.ElementType }[]
 
 export function Perfil() {
   const { user } = useAuth();
-  const { disponivel, toggleDisponivel, perfil, atualizarPerfil } = useEntregadorStore();
+  const { 
+    disponivel, 
+    toggleDisponivel, 
+    perfil, 
+    atualizarPerfil,
+    fetchEntregas,
+    isLoading
+  } = useEntregadorStore();
+
+  useEffect(() => {
+    fetchEntregas();
+  }, [fetchEntregas]);
 
   const [form, setForm] = useState({
-    nome: perfil.nome,
-    email: perfil.email,
-    telefone: perfil.telefone,
-    veiculo: perfil.veiculo,
-    placaVeiculo: perfil.placaVeiculo,
-    provincia: perfil.provincia,
-    municipio: perfil.municipio,
+    nome: perfil.nome || user?.nome || '',
+    email: perfil.email || user?.email || '',
+    telefone: perfil.telefone || '',
+    veiculo: perfil.veiculo || 'moto',
+    placaVeiculo: perfil.placaVeiculo || '',
+    provincia: perfil.provincia || '',
+    municipio: perfil.municipio || '',
   });
 
   const [salvando, setSalvando] = useState(false);
@@ -51,24 +63,38 @@ export function Perfil() {
 
   const handleSalvar = async () => {
     if (!form.nome.trim() || !form.email.trim() || !form.telefone.trim()) {
-      setErro('Nome, email e telefone são obrigatórios.');
+      setErro('Nome, email e telefone s?o obrigat?rios.');
       return;
     }
 
     setSalvando(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    atualizarPerfil(form);
+    const success = await atualizarPerfil(form);
     setSalvando(false);
-    setSalvo(true);
-    setTimeout(() => setSalvo(false), 3000);
+    if (success) {
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+    } else {
+      setErro('Falha ao atualizar perfil.');
+    }
   };
 
   const iniciais =
-    (user?.nome ?? perfil.nome)
+    (user?.nome ?? perfil.nome ?? 'E')
       .split(' ')
       .slice(0, 2)
       .map((n) => n.charAt(0).toUpperCase())
       .join('') || 'E';
+
+  if (isLoading && !perfil.email) {
+    return (
+      <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 text-green-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Carregando perfil...</p>
+        </div>
+      </EntregadorLayout>
+    );
+  }
 
   return (
     <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>

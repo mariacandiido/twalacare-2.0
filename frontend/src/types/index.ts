@@ -90,15 +90,20 @@ export interface Medicamento {
   nome: string;
   categoria: string;
   descricao: string;
-  price: number;
-  farmacia: string;
+  preco: number;             // Alterado de price para preco (alinhado com backend)
+  price?: number;            // Mantido opcional por compatibilidade
+  farmacia?: string;
+  farmaciaId?: string;
+  farmacia_id?: string;      // Alinhado com backend
   farmacias?: Farmacia[];
-  provincia: string;
-  image: string;
-  rating: number;
+  provincia?: string;
+  imagem?: string;           // Alterado de image para imagem (alinhado com backend)
+  image?: string;            // Mantido opcional por compatibilidade
+  rating?: number;
   stock: number;
-  requiresPrescription: boolean;
-  horario: string;
+  precisa_receita: boolean;  // Alterado de requiresPrescription para precisa_receita (alinhado com backend)
+  requiresPrescription?: boolean; // Mantido opcional por compatibilidade
+  horario?: string;
 }
 
 // Pedido
@@ -126,6 +131,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   farmacia: string;
+  farmaciaId: string;
   image: string;
   requiresPrescription: boolean;
 }

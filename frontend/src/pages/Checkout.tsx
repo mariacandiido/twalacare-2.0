@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Upload, CheckCircle, CreditCard, Smartphone, Wallet } from "lucide-react";
 import { useCartStore, DELIVERY_FEE } from "../store/cartStore";
 import { useAuth } from "../hooks/useAuth";
-import { useAdminStore } from "../store/adminStore";
+import { orderService } from "../services/orderService";
 
 const stepLabels = ["Endereço", "Receita", "Pagamento", "Revisão", "Confirmação"];
 
@@ -40,7 +40,6 @@ export function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, getTotal, clearCart } = useCartStore();
-  const adicionarPedido = useAdminStore((s) => s.adicionarPedido);
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<"multicaixa" | "unitel" | "entrega">("multicaixa");
   const [prescriptionUploaded, setPrescriptionUploaded] = useState(false);
@@ -55,27 +54,46 @@ export function Checkout() {
     }
   };
 
-  const handleConfirmarPedido = () => {
-    const total = getTotal() + DELIVERY_FEE;
-    const farmacia = items.map((i) => i.farmacia).filter(Boolean)[0] ?? "Farmácia";
-    const itensStr = items.map((i) => `${i.name} ×${i.quantity}`).join(", ");
-    adicionarPedido({
-      clienteId: user?.id ?? "guest",
-      clienteNome: user?.nome ?? "Cliente",
-      farmacia,
-      itens: itensStr,
-      total,
-      status: "pendente",
-      metodoPagamento: PAYMENT_LABELS[paymentMethod] ?? paymentMethod,
-      enderecoEntrega,
-    });
-    setPedidoIdConfirmado(`#TC${Date.now()}`);
-    setStep(5);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleConfirmarPedido = async () => {
+    setIsPlacingOrder(true);
+    setError(null);
+    try {
+      const orderData = {
+        items: items.map(i => ({
+          medicamento_id: i.id,
+          farmacia_id: i.farmaciaId,
+          nome: i.name,
+          preco_unitario: i.price,
+          quantidade: i.quantity,
+          requires_prescription: i.requiresPrescription
+        })),
+        subtotal: getTotal(),
+        taxa_entrega: DELIVERY_FEE,
+        total: getTotal() + DELIVERY_FEE,
+        metodo_pagamento: PAYMENT_LABELS[paymentMethod] ?? paymentMethod,
+        endereco_entrega: enderecoEntrega
+      };
+
+      const res = await orderService.create(orderData);
+      if (res.success) {
+        setPedidoIdConfirmado(res.data.pedido.id);
+        setStep(5);
+      } else {
+        setError(res.error || "Erro ao realizar pedido");
+      }
+    } catch (err) {
+      setError("Falha na conexão com o servidor");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const handleFinalizePurchase = () => {
     clearCart();
-    navigate("/cliente/acompanhar-entrega");
+    navigate(`/cliente/acompanhar-entrega/${pedidoIdConfirmado}`);
   };
 
   if (items.length === 0) {
@@ -350,9 +368,38 @@ export function Checkout() {
                 </p>
               </div>
             </div>
+            {error && (
+              <div
+                style={{
+                  padding: "12px 16px",
+                  backgroundColor: "rgba(212,90,90,0.1)",
+                  border: "1px solid #d45a5a",
+                  borderRadius: 8,
+                  color: "#d45a5a",
+                  fontSize: 14,
+                  marginBottom: 16,
+                  fontFamily: "'Roboto', sans-serif"
+                }}
+              >
+                {error}
+              </div>
+            )}
             <div className="flex gap-4 mt-8">
               <button onClick={() => setStep(3)} className="twala-btn-outline flex-1">Voltar</button>
-              <button onClick={handleConfirmarPedido} className="twala-btn-primary flex-1">Confirmar Pedido</button>
+              <button
+                onClick={handleConfirmarPedido}
+                disabled={isPlacingOrder}
+                className="twala-btn-primary flex-1 flex items-center justify-center gap-2"
+              >
+                {isPlacingOrder ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Processando...
+                  </>
+                ) : (
+                  "Confirmar Pedido"
+                )}
+              </button>
             </div>
           </div>
         )}

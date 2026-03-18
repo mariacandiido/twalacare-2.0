@@ -1,90 +1,70 @@
-import { useState } from "react";
-import { CheckCircle, XCircle, FileText, Search, Eye, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CheckCircle, XCircle, FileText, Search, Eye, X, AlertCircle } from "lucide-react";
 import { FarmaciaLayout } from "../../layouts/FarmaciaLayout";
-import type { ReceitaFarmacia, StatusReceita } from "../../types/farmacia.types";
+import { prescriptionService } from "../../services/prescriptionService";
 
-const receitasMock: ReceitaFarmacia[] = [
-  {
-    id: "R-001",
-    nomeCliente: "Ana Beatriz",
-    nomeMedicamento: "Amoxicilina 875mg",
-    imagemReceita: "https://placehold.co/400x300/e8f5e9/2e7d32?text=Receita+Médica",
-    status: "pendente",
-    dataEnvio: "2026-03-04T14:20:00Z",
-    pedidoId: "TC-0045",
-  },
-  {
-    id: "R-002",
-    nomeCliente: "Carlos Mendes",
-    nomeMedicamento: "Omeprazol 20mg",
-    imagemReceita: "https://placehold.co/400x300/e8f5e9/2e7d32?text=Receita+Médica",
-    status: "pendente",
-    dataEnvio: "2026-03-04T13:50:00Z",
-    pedidoId: "TC-0044",
-  },
-  {
-    id: "R-003",
-    nomeCliente: "Maria Fernanda",
-    nomeMedicamento: "Metformina 850mg",
-    imagemReceita: "https://placehold.co/400x300/e8f5e9/2e7d32?text=Receita+Médica",
-    status: "aprovada",
-    dataEnvio: "2026-03-04T11:30:00Z",
-    pedidoId: "TC-0040",
-  },
-  {
-    id: "R-004",
-    nomeCliente: "João Pedro",
-    nomeMedicamento: "Diazepam 5mg",
-    imagemReceita: "https://placehold.co/400x300/e8f5e9/2e7d32?text=Receita+Médica",
-    status: "rejeitada",
-    dataEnvio: "2026-03-04T10:15:00Z",
-    pedidoId: "TC-0039",
-  },
-  {
-    id: "R-005",
-    nomeCliente: "Sofia Lopes",
-    nomeMedicamento: "Losartana 50mg",
-    imagemReceita: "https://placehold.co/400x300/e8f5e9/2e7d32?text=Receita+Médica",
-    status: "pendente",
-    dataEnvio: "2026-03-04T09:05:00Z",
-    pedidoId: "TC-0043",
-  },
-];
-
-const statusConfig: Record<StatusReceita, { label: string; className: string }> = {
+const statusConfig: Record<string, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-yellow-100 text-yellow-700" },
   aprovada: { label: "Aprovada", className: "bg-green-100 text-green-700" },
   rejeitada: { label: "Rejeitada", className: "bg-red-100 text-red-700" },
 };
 
 export function FarmaciaReceitas() {
-  const [receitas, setReceitas] = useState<ReceitaFarmacia[]>(receitasMock);
+  const [receitas, setReceitas] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState<string>("todas");
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchReceitas();
+  }, []);
+
+  const fetchReceitas = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await prescriptionService.getFarmaciaPrescriptions();
+      if (res.success) {
+        setReceitas(res.data || []);
+      } else {
+        setError(res.error || "Erro ao carregar receitas");
+      }
+    } catch (err) {
+      setError("Falha na conexão");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filtered = receitas.filter((r) => {
+    const nomeCliente = r.cliente?.nome || "";
     const matchSearch =
-      r.nomeCliente.toLowerCase().includes(search.toLowerCase()) ||
-      r.nomeMedicamento.toLowerCase().includes(search.toLowerCase());
-    const matchFiltro = filtro === "todas" || r.status === filtro;
+      nomeCliente.toLowerCase().includes(search.toLowerCase()) ||
+      (r.pedido_id && r.pedido_id.toLowerCase().includes(search.toLowerCase()));
+    const matchFiltro = filtro === "todas" || r.estado === filtro;
     return matchSearch && matchFiltro;
   });
 
   const receitaPreview = receitas.find((r) => r.id === previewId);
 
-  function aprovar(id: string) {
-    setReceitas((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "aprovada" } : r))
-    );
-    setPreviewId(null);
-  }
-
-  function rejeitar(id: string) {
-    setReceitas((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "rejeitada" } : r))
-    );
-    setPreviewId(null);
+  async function atualizarEstado(id: string, novoEstado: string) {
+    setIsUpdating(id);
+    try {
+      const res = await prescriptionService.updateStatus(id, novoEstado);
+      if (res.success) {
+        fetchReceitas();
+        setPreviewId(null);
+      } else {
+        alert(res.error || "Erro ao atualizar estado da receita");
+      }
+    } catch (err) {
+      alert("Erro de conexão");
+    } finally {
+      setIsUpdating(null);
+    }
   }
 
   function formatarData(iso: string) {
@@ -99,9 +79,9 @@ export function FarmaciaReceitas() {
 
   const contadores = {
     todas: receitas.length,
-    pendente: receitas.filter((r) => r.status === "pendente").length,
-    aprovada: receitas.filter((r) => r.status === "aprovada").length,
-    rejeitada: receitas.filter((r) => r.status === "rejeitada").length,
+    pendente: receitas.filter((r) => r.estado === "pendente").length,
+    aprovada: receitas.filter((r) => r.estado === "aprovada").length,
+    rejeitada: receitas.filter((r) => r.estado === "rejeitada").length,
   };
 
   return (
@@ -152,7 +132,18 @@ export function FarmaciaReceitas() {
         </div>
 
         {/* Lista de receitas */}
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+            <div className="twala-loading mx-auto mb-4" />
+            <p className="text-gray-500">A carregar receitas...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-2xl shadow-md p-12 text-center text-red-500">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3" />
+            <p className="font-medium">{error}</p>
+            <button onClick={fetchReceitas} className="twala-btn-outline mt-4 mx-auto">Tentar Novamente</button>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">Nenhuma receita encontrada</p>
@@ -160,7 +151,8 @@ export function FarmaciaReceitas() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filtered.map((receita) => {
-              const config = statusConfig[receita.status];
+              const config = statusConfig[receita.estado] || statusConfig.pendente;
+              const nomeCliente = receita.cliente?.nome || "Cliente";
               return (
                 <div
                   key={receita.id}
@@ -169,7 +161,7 @@ export function FarmaciaReceitas() {
                   {/* Imagem da receita */}
                   <div className="relative">
                     <img
-                      src={receita.imagemReceita}
+                      src={receita.ficheiro_url}
                       alt="Receita médica"
                       className="w-full h-40 object-cover"
                     />
@@ -184,9 +176,9 @@ export function FarmaciaReceitas() {
                   <div className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <p className="font-bold text-gray-900">{receita.nomeCliente}</p>
+                        <p className="font-bold text-gray-900">{nomeCliente}</p>
                         <p className="text-sm text-green-700 font-medium mt-0.5">
-                          {receita.nomeMedicamento}
+                          #{receita.id.substring(0, 8)}
                         </p>
                       </div>
                       <button
@@ -199,36 +191,38 @@ export function FarmaciaReceitas() {
                     </div>
 
                     <p className="text-xs text-gray-400 mb-4">
-                      Enviado em {formatarData(receita.dataEnvio)}
-                      {receita.pedidoId && ` · Pedido #${receita.pedidoId}`}
+                      Enviado em {formatarData(receita.data_envio)}
+                      {receita.pedido_id && ` · Pedido #${receita.pedido_id.substring(0, 8)}`}
                     </p>
 
-                    {receita.status === "pendente" ? (
+                    {receita.estado === "pendente" ? (
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => rejeitar(receita.id)}
-                          className="flex-1 flex items-center justify-center space-x-1.5 border border-red-200 text-red-600 hover:bg-red-50 py-2 rounded-xl text-sm font-medium transition"
+                          onClick={() => atualizarEstado(receita.id, "rejeitada")}
+                          disabled={isUpdating === receita.id}
+                          className="flex-1 flex items-center justify-center space-x-1.5 border border-red-200 text-red-600 hover:bg-red-50 py-2 rounded-xl text-sm font-medium transition disabled:opacity-50"
                         >
                           <XCircle className="w-4 h-4" />
                           <span>Rejeitar</span>
                         </button>
                         <button
-                          onClick={() => aprovar(receita.id)}
-                          className="flex-1 flex items-center justify-center space-x-1.5 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl text-sm font-medium transition shadow-sm"
+                          onClick={() => atualizarEstado(receita.id, "aprovada")}
+                          disabled={isUpdating === receita.id}
+                          className="flex-1 flex items-center justify-center space-x-1.5 bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl text-sm font-medium transition shadow-sm disabled:opacity-50"
                         >
                           <CheckCircle className="w-4 h-4" />
                           <span>Aprovar</span>
                         </button>
                       </div>
                     ) : (
-                      <div className={`flex items-center justify-center space-x-2 py-2 rounded-xl text-sm font-medium ${receita.status === "aprovada" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                        {receita.status === "aprovada" ? (
+                      <div className={`flex items-center justify-center space-x-2 py-2 rounded-xl text-sm font-medium ${receita.estado === "aprovada" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                        {receita.estado === "aprovada" ? (
                           <CheckCircle className="w-4 h-4" />
                         ) : (
                           <XCircle className="w-4 h-4" />
                         )}
                         <span>
-                          {receita.status === "aprovada" ? "Receita Aprovada" : "Receita Rejeitada"}
+                          {receita.estado === "aprovada" ? "Receita Aprovada" : "Receita Rejeitada"}
                         </span>
                       </div>
                     )}
@@ -246,8 +240,8 @@ export function FarmaciaReceitas() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div>
-                <h2 className="font-bold text-gray-900">Receita de {receitaPreview.nomeCliente}</h2>
-                <p className="text-sm text-green-700">{receitaPreview.nomeMedicamento}</p>
+                <h2 className="font-bold text-gray-900">Receita de {receitaPreview.cliente?.nome || "Cliente"}</h2>
+                <p className="text-sm text-green-700">#{receitaPreview.id.substring(0, 8)}</p>
               </div>
               <button
                 onClick={() => setPreviewId(null)}
@@ -259,24 +253,26 @@ export function FarmaciaReceitas() {
 
             <div className="p-5">
               <img
-                src={receitaPreview.imagemReceita}
+                src={receitaPreview.ficheiro_url}
                 alt="Receita médica ampliada"
                 className="w-full rounded-xl border border-gray-100"
               />
             </div>
 
-            {receitaPreview.status === "pendente" && (
+            {receitaPreview.estado === "pendente" && (
               <div className="p-5 border-t border-gray-100 flex space-x-3">
                 <button
-                  onClick={() => rejeitar(receitaPreview.id)}
-                  className="flex-1 flex items-center justify-center space-x-2 border border-red-200 text-red-600 hover:bg-red-50 py-2.5 rounded-xl font-medium transition"
+                  onClick={() => atualizarEstado(receitaPreview.id, "rejeitada")}
+                  disabled={isUpdating === receitaPreview.id}
+                  className="flex-1 flex items-center justify-center space-x-2 border border-red-200 text-red-600 hover:bg-red-50 py-2.5 rounded-xl font-medium transition disabled:opacity-50"
                 >
                   <XCircle className="w-4 h-4" />
                   <span>Rejeitar</span>
                 </button>
                 <button
-                  onClick={() => aprovar(receitaPreview.id)}
-                  className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-medium transition"
+                  onClick={() => atualizarEstado(receitaPreview.id, "aprovada")}
+                  disabled={isUpdating === receitaPreview.id}
+                  className="flex-1 flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-xl font-medium transition shadow-sm disabled:opacity-50"
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>Aprovar</span>

@@ -8,32 +8,32 @@ import { apiRequest, getAuthHeader, API_BASE } from "./authService";
 export const medicamentoService = {
   // Obter todos os medicamentos disponíveis (público)
   async getAll(): Promise<ApiResponse<Medicamento[]>> {
-    return apiRequest("/cliente/medicamentos", "GET");
+    return apiRequest("/public/medicamentos", "GET");
   },
 
   // Pesquisar medicamentos por nome
   async search(query: string): Promise<ApiResponse<Medicamento[]>> {
-    return apiRequest(`/cliente/medicamentos?q=${encodeURIComponent(query)}`, "GET");
+    return apiRequest(`/public/medicamentos?q=${encodeURIComponent(query)}`, "GET");
   },
 
   // Obter medicamento por ID
   async getById(id: string): Promise<ApiResponse<Medicamento>> {
-    return apiRequest(`/cliente/medicamentos/${id}`, "GET");
+    return apiRequest(`/public/medicamentos/${id}`, "GET");
   },
 
   // Obter medicamentos por categoria (filtro no cliente)
   async getByCategory(categoria: string): Promise<ApiResponse<Medicamento[]>> {
-    return apiRequest(`/cliente/medicamentos?categoria=${encodeURIComponent(categoria)}`, "GET");
+    return apiRequest(`/public/medicamentos?categoria=${encodeURIComponent(categoria)}`, "GET");
   },
 
   // Obter medicamentos de uma farmácia específica
   async getByFarmacia(farmaciaId: string): Promise<ApiResponse<Medicamento[]>> {
-    return apiRequest(`/cliente/medicamentos?farmacia_id=${farmaciaId}`, "GET");
+    return apiRequest(`/public/medicamentos?farmaciaId=${farmaciaId}`, "GET");
   },
 
   // Listar farmácias aprovadas
   async getFarmacias(): Promise<ApiResponse<any[]>> {
-    return apiRequest("/cliente/farmacias", "GET");
+    return apiRequest("/public/farmacias", "GET");
   },
 
   // Listar categorias de medicamentos

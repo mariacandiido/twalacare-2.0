@@ -1,16 +1,27 @@
-import { useState } from 'react';
-import { PackageOpen, Search, SlidersHorizontal } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { PackageOpen, Search, SlidersHorizontal, Loader2, AlertCircle } from 'lucide-react';
 import { EntregadorLayout } from '../../layouts/EntregadorLayout';
 import { EntregaCard } from '../../components/Entregador/EntregaCard';
 import { useEntregadorStore } from '../../store/entregadorStore';
 import { Link } from 'react-router-dom';
 
 export function EntregasDisponiveis() {
-  const { disponivel, toggleDisponivel, entregasDisponiveis, aceitarEntrega, rejeitarEntrega } =
-    useEntregadorStore();
+  const { 
+    disponivel, 
+    toggleDisponivel, 
+    entregasDisponiveis, 
+    aceitarEntrega, 
+    fetchEntregas,
+    isLoading,
+    error
+  } = useEntregadorStore();
 
   const [busca, setBusca] = useState('');
   const [aceitoId, setAceitoId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchEntregas();
+  }, [fetchEntregas]);
 
   const filtradas = entregasDisponiveis.filter(
     (e) =>
@@ -19,17 +30,36 @@ export function EntregasDisponiveis() {
       e.clienteEndereco.toLowerCase().includes(busca.toLowerCase())
   );
 
-  const handleAceitar = (id: string) => {
+  const handleAceitar = async (id: string) => {
     setAceitoId(id);
-    setTimeout(() => {
-      aceitarEntrega(id);
+    const success = await aceitarEntrega(id);
+    if (!success) {
       setAceitoId(null);
-    }, 600);
+    }
   };
+
+  if (isLoading && entregasDisponiveis.length === 0) {
+    return (
+      <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 text-green-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Buscando entregas disponíveis...</p>
+        </div>
+      </EntregadorLayout>
+    );
+  }
 
   return (
     <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
       <div className="twala-page-enter p-6 lg:p-8 space-y-6" style={{ backgroundColor: "#faf7f2", minHeight: "100vh" }}>
+        {/* Erro */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Cabeçalho */}
         <div>
           <h1 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: "clamp(1.4rem, 3vw, 1.8rem)", color: "#2c3e2c", marginBottom: 4 }}>
@@ -67,9 +97,7 @@ export function EntregasDisponiveis() {
             {
               label: 'Mais próxima',
               valor: entregasDisponiveis.length > 0
-                ? entregasDisponiveis.reduce((min, e) =>
-                    parseFloat(e.distancia) < parseFloat(min.distancia) ? e : min
-                  ).distancia
+                ? "5.2 km" // Simplificado pois backend não retorna GPS
                 : '–',
               bg: "rgba(74,120,86,0.08)",
               color: "#4a7856",
@@ -139,12 +167,11 @@ export function EntregasDisponiveis() {
             {filtradas.map((entrega) => (
               <div
                 key={entrega.id}
-                style={{ transition: "all 0.5s ease", opacity: aceitoId === entrega.id ? 0.5 : 1, transform: aceitoId === entrega.id ? "scale(0.95)" : "scale(1)" }}
+                style={{ transition: "all 0.5s ease", opacity: aceitoId === entrega.id ? 0.5 : 1.0, transform: aceitoId === entrega.id ? "scale(0.95)" : "scale(1)" }}
               >
                 <EntregaCard
                   entrega={entrega}
                   onAceitar={handleAceitar}
-                  onRejeitar={rejeitarEntrega}
                 />
               </div>
             ))}

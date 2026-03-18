@@ -1,67 +1,107 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Truck,
   MapPin,
   Phone,
   Building2,
-  Clock,
   ChevronDown,
   Navigation,
   CheckCircle2,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { EntregadorLayout } from '../../layouts/EntregadorLayout';
 import { StatusEntrega } from '../../components/Entregador/StatusEntrega';
 import { useEntregadorStore } from '../../store/entregadorStore';
-import type { StatusEntregaType } from '../../types/entregador.types';
 import { Link } from 'react-router-dom';
 
-const statusProgresso: StatusEntregaType[] = [
-  'indo-farmacia',
-  'pegando-pedido',
-  'a-caminho-cliente',
+const statusProgresso = [
+  'aceito',
+  'pegando-pedido', // Granularidade local para UX
+  'em_transito',
   'entregue',
 ];
 
-const statusLabel: Record<StatusEntregaType | 'entregue', string> = {
-  'indo-farmacia': 'Indo para farmácia',
+const statusLabel: Record<string, string> = {
+  'aceito': 'Indo para farmácia',
   'pegando-pedido': 'Pegando pedido',
-  'a-caminho-cliente': 'A caminho do cliente',
-  entregue: 'Marcar como Entregue',
+  'em_transito': 'A caminho do cliente',
+  'entregue': 'Marcar como Entregue',
 };
 
-function getProximoStatus(atual: StatusEntregaType): StatusEntregaType | 'entregue' {
-  const idx = statusProgresso.indexOf(atual);
-  if (idx < statusProgresso.length - 1) return statusProgresso[idx + 1];
+function getProximoStatus(atual: string): string {
+  // Lógica de avanço personalizada para a UI
+  if (atual === 'aceito') return 'pegando-pedido';
+  if (atual === 'pegando-pedido') return 'em_transito';
+  if (atual === 'em_transito') return 'entregue';
   return 'entregue';
 }
 
 export function MinhasEntregas() {
-  const { disponivel, toggleDisponivel, entregasAtivas, atualizarStatus } =
-    useEntregadorStore();
+  const { 
+    disponivel, 
+    toggleDisponivel, 
+    entregasAtivas, 
+    atualizarStatus, 
+    fetchEntregas,
+    isLoading,
+    error
+  } = useEntregadorStore();
 
-  const [expandido, setExpandido] = useState<string | null>(
-    entregasAtivas[0]?.id ?? null
-  );
-
+  const [expandido, setExpandido] = useState<string | null>(null);
   const [confirmando, setConfirmando] = useState<string | null>(null);
+  const [atualizandoId, setAtualizandoId] = useState<string | null>(null);
 
-  const handleAtualizarStatus = (id: string, status: StatusEntregaType) => {
+  useEffect(() => {
+    fetchEntregas();
+  }, [fetchEntregas]);
+
+  useEffect(() => {
+    if (entregasAtivas.length > 0 && !expandido) {
+      setExpandido(entregasAtivas[0].id);
+    }
+  }, [entregasAtivas, expandido]);
+
+  const handleAtualizarStatus = async (id: string, status: string) => {
     const proximo = getProximoStatus(status);
     if (proximo === 'entregue') {
       setConfirmando(id);
     } else {
-      atualizarStatus(id, proximo);
+      setAtualizandoId(id);
+      await atualizarStatus(id, proximo);
+      setAtualizandoId(null);
     }
   };
 
-  const handleConfirmarEntrega = (id: string) => {
-    atualizarStatus(id, 'entregue');
+  const handleConfirmarEntrega = async (id: string) => {
+    setAtualizandoId(id);
+    await atualizarStatus(id, 'entregue');
+    setAtualizandoId(null);
     setConfirmando(null);
   };
+
+  if (isLoading && entregasAtivas.length === 0) {
+    return (
+      <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 text-green-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Carregando entregas activas...</p>
+        </div>
+      </EntregadorLayout>
+    );
+  }
 
   return (
     <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
       <div className="twala-page-enter p-6 lg:p-8 space-y-6" style={{ backgroundColor: "#faf7f2", minHeight: "100vh" }}>
+        {/* Erro */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Cabeçalho */}
         <div>
           <h1 style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 600, fontSize: "clamp(1.4rem, 3vw, 1.8rem)", color: "#2c3e2c", marginBottom: 4 }}>
@@ -144,7 +184,7 @@ export function MinhasEntregas() {
                         className="absolute top-3 left-0 h-0.5 bg-green-500 transition-all duration-500"
                         style={{
                           width: `${
-                            ((statusProgresso.indexOf(entrega.status)) /
+                            ((statusProgresso.indexOf(entrega.status === 'aceito' ? 'aceito' : entrega.status === 'em_transito' ? 'em_transito' : 'aceito')) /
                               (statusProgresso.length - 1)) *
                             100
                           }%`,
@@ -152,9 +192,9 @@ export function MinhasEntregas() {
                       />
                       <div className="relative flex justify-between">
                         {statusProgresso.map((s, i) => {
-                          const atual = statusProgresso.indexOf(entrega.status);
-                          const isFeito = i <= atual;
-                          const isAtual = i === atual;
+                          const atualIdx = statusProgresso.indexOf(entrega.status === 'aceito' ? 'aceito' : entrega.status === 'em_transito' ? 'em_transito' : 'aceito');
+                          const isFeito = i <= atualIdx;
+                          const isAtual = i === atualIdx;
                           return (
                             <div key={s} className="flex flex-col items-center gap-1.5">
                               <div
@@ -169,9 +209,9 @@ export function MinhasEntregas() {
                                 )}
                               </div>
                               <span className={`text-[9px] font-medium text-center leading-tight max-w-[56px] ${isFeito ? 'text-green-600' : 'text-gray-400'}`}>
-                                {s === 'indo-farmacia' && 'Indo farmácia'}
-                                {s === 'pegando-pedido' && 'Pegando pedido'}
-                                {s === 'a-caminho-cliente' && 'A caminho'}
+                                {s === 'aceito' && 'Indo farmácia'}
+                                {s === 'pegando-pedido' && 'No local'}
+                                {s === 'em_transito' && 'A caminho'}
                                 {s === 'entregue' && 'Entregue'}
                               </span>
                             </div>
@@ -188,16 +228,6 @@ export function MinhasEntregas() {
                       <div className="bg-gray-100 rounded-xl h-40 flex flex-col items-center justify-center border-2 border-dashed border-gray-200">
                         <Navigation className="w-8 h-8 text-gray-400 mb-2" />
                         <p className="text-sm font-semibold text-gray-500">Mapa da rota da entrega</p>
-                        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-green-500" />
-                            Farmácia
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-blue-500" />
-                            Cliente
-                          </span>
-                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -225,28 +255,6 @@ export function MinhasEntregas() {
                             <MapPin className="w-3.5 h-3.5 text-blue-500 mt-0.5 flex-shrink-0" />
                             <p className="text-xs text-gray-600">{entrega.clienteEndereco}</p>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Phone className="w-3.5 h-3.5 text-blue-400" />
-                            <p className="text-xs text-gray-600">{entrega.clienteTelefone}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Info rápida */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-3">
-                          <MapPin className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <p className="text-xs text-gray-400">Distância</p>
-                            <p className="text-sm font-bold text-gray-800">{entrega.distancia}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 bg-gray-50 rounded-xl p-3">
-                          <Clock className="w-4 h-4 text-gray-500" />
-                          <div>
-                            <p className="text-xs text-gray-400">Tempo estimado</p>
-                            <p className="text-sm font-bold text-gray-800">{entrega.tempoEstimado}</p>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -268,8 +276,10 @@ export function MinhasEntregas() {
                           </button>
                           <button
                             onClick={() => handleConfirmarEntrega(entrega.id)}
-                            className="py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition"
+                            disabled={atualizandoId === entrega.id}
+                            className="py-2 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition flex items-center justify-center gap-2"
                           >
+                            {atualizandoId === entrega.id && <Loader2 className="w-4 h-4 animate-spin" />}
                             Confirmar
                           </button>
                         </div>
@@ -277,12 +287,14 @@ export function MinhasEntregas() {
                     ) : (
                       <button
                         onClick={() => handleAtualizarStatus(entrega.id, entrega.status)}
-                        className={`w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                        disabled={atualizandoId === entrega.id}
+                        className={`w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${
                           isUltimo
                             ? 'bg-green-600 text-white hover:bg-green-700 shadow-md shadow-green-200'
                             : 'bg-gray-900 text-white hover:bg-gray-800'
                         }`}
                       >
+                        {atualizandoId === entrega.id && <Loader2 className="w-4 h-4 animate-spin" />}
                         {isUltimo ? '✓ Marcar como Entregue' : `Avançar: ${statusLabel[proxStatus]}`}
                       </button>
                     )}

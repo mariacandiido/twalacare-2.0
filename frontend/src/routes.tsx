@@ -117,7 +117,7 @@ export const router = createBrowserRouter([
       // --------------------------------------------------
       {
         // Página de acompanhamento de entrega com mapa simulado em tempo real
-        path: "cliente/acompanhar-entrega",
+        path: "cliente/acompanhar-entrega/:id?",
         element: (
           <ProtectedRoute allowedTypes={["cliente"]}>
             <AcompanharEntrega />

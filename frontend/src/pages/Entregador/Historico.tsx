@@ -1,11 +1,23 @@
-import { useState } from 'react';
-import { CheckCircle2, Star, MapPin, Clock, TrendingUp, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle2, Star, MapPin, TrendingUp, Search, Loader2, AlertCircle } from 'lucide-react';
 import { EntregadorLayout } from '../../layouts/EntregadorLayout';
 import { useEntregadorStore } from '../../store/entregadorStore';
 
 export function Historico() {
-  const { disponivel, toggleDisponivel, historico, perfil } = useEntregadorStore();
+  const { 
+    disponivel, 
+    toggleDisponivel, 
+    historico, 
+    perfil, 
+    fetchEntregas,
+    isLoading,
+    error 
+  } = useEntregadorStore();
   const [busca, setBusca] = useState('');
+
+  useEffect(() => {
+    fetchEntregas();
+  }, [fetchEntregas]);
 
   const filtradas = historico.filter(
     (e) =>
@@ -20,9 +32,27 @@ export function Historico() {
       ? (historico.reduce((soma, e) => soma + (e.avaliacao ?? 0), 0) / historico.length).toFixed(1)
       : '';
 
+  if (isLoading && historico.length === 0) {
+    return (
+      <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 text-green-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Carregando histórico...</p>
+        </div>
+      </EntregadorLayout>
+    );
+  }
+
   return (
     <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
       <div className="twala-page-enter p-6 lg:p-8 space-y-6" style={{ backgroundColor: '#faf7f2', minHeight: '100vh' }}>
+        {/* Erro */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+          </div>
+        )}
         {/* Cabe?alho */}
         <div>
           <h1
@@ -34,7 +64,7 @@ export function Historico() {
               marginBottom: 4,
             }}
           >
-            Hist?rico de Entregas
+            Histórico de Entregas
           </h1>
           <div
             style={{
@@ -46,7 +76,7 @@ export function Historico() {
             }}
           />
           <p style={{ fontFamily: "'Roboto', sans-serif", color: '#4a7856', fontSize: 13 }}>
-            {historico.length} entrega(s) conclu?da(s) no total
+            {historico.length} entrega(s) concluída(s) no total
           </p>
         </div>
 
@@ -128,7 +158,7 @@ export function Historico() {
           />
           <input
             type="text"
-            placeholder="Pesquisar por cliente, farm?cia ou endere?o..."
+            placeholder="Pesquisar por cliente, farmácia ou endereço..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             className="twala-input w-full"
@@ -136,7 +166,7 @@ export function Historico() {
           />
         </div>
 
-        {/* Lista de entregas conclu?das */}
+        {/* Lista de entregas concluídas */}
         {filtradas.length === 0 ? (
           <div className="twala-card flex flex-col items-center justify-center py-16 text-center">
             <div
@@ -165,10 +195,10 @@ export function Historico() {
             ) : (
               <>
                 <p style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 500, color: '#4a7856' }}>
-                  Nenhuma entrega conclu?da ainda
+                  Nenhuma entrega concluída ainda
                 </p>
                 <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 13, color: '#888', marginTop: 4 }}>
-                  O seu hist?rico de entregas aparecer? aqui.
+                  O seu histórico de entregas aparecerá aqui.
                 </p>
               </>
             )}
@@ -181,7 +211,7 @@ export function Historico() {
                 className="twala-card"
                 style={{ padding: '16px 20px' }}
               >
-                {/* Cabe?alho do card */}
+                {/* Cabeçalho do card */}
                 <div className="flex items-start justify-between gap-4" style={{ marginBottom: 12 }}>
                   <div className="flex items-center gap-3">
                     <div
@@ -211,7 +241,7 @@ export function Historico() {
                         {entrega.cliente}
                       </p>
                       <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 12, color: '#888', margin: '2px 0 0' }}>
-                        {entrega.data}
+                        {new Date(entrega.data).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
@@ -227,21 +257,6 @@ export function Historico() {
                     >
                       {entrega.valor.toLocaleString()} Kz
                     </p>
-                    {entrega.avaliacao !== undefined && (
-                      <div className="flex items-center gap-1 justify-end" style={{ marginTop: 2 }}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star
-                            key={i}
-                            style={{
-                              width: 12,
-                              height: 12,
-                              color: i < entrega.avaliacao! ? '#c7a252' : '#ddd',
-                              fill: i < entrega.avaliacao! ? '#c7a252' : 'none',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -250,7 +265,7 @@ export function Historico() {
                   <div className="flex items-center gap-2">
                     <MapPin style={{ width: 14, height: 14, color: '#4a7856', flexShrink: 0 }} />
                     <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 12, color: '#555', margin: 0 }}>
-                      <span style={{ fontWeight: 500 }}>Farm?cia:</span> {entrega.farmacia}
+                      <span style={{ fontWeight: 500 }}>Farmácia:</span> {entrega.farmacia}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -259,14 +274,6 @@ export function Historico() {
                       <span style={{ fontWeight: 500 }}>Destino:</span> {entrega.clienteEndereco}
                     </p>
                   </div>
-                  {entrega.duracao && (
-                    <div className="flex items-center gap-2">
-                      <Clock style={{ width: 14, height: 14, color: '#888', flexShrink: 0 }} />
-                      <p style={{ fontFamily: "'Roboto', sans-serif", fontSize: 12, color: '#555', margin: 0 }}>
-                        <span style={{ fontWeight: 500 }}>Dura??o:</span> {entrega.duracao}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Badge de status */}

@@ -2,7 +2,7 @@
 // Mostra todas as compras realizadas pelo cliente autenticado,
 // com filtros por texto e estado de entrega.
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ShoppingBag,   // ícone de saco de compras
   Building2,     // ícone de farmácia
@@ -16,7 +16,7 @@ import {
   TrendingUp,    // ícone de total gasto
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
-import { useAdminStore } from "../../store/adminStore";
+import { orderService } from "../../services/orderService";
 
 // -------------------------------------------------------
 // TIPOS LOCAIS
@@ -47,24 +47,13 @@ interface Compra {
   statusEntrega: StatusEntrega;  // estado atual da entrega
 }
 
-// Mapeia status do pedido (admin store) para status de entrega da UI
+// Mapeia status do pedido (backend) para status de entrega da UI
 function toStatusEntrega(status: string): StatusEntrega {
   if (status === "entregue") return "entregue";
-  if (status === "em-transito") return "em-transito";
-  if (status === "em-preparacao" || status === "pronto") return "em-preparacao";
+  if (status === "em_transito") return "em-transito";
+  if (status === "confirmado" || status === "em_preparacao" || status === "pronto") return "em-preparacao";
   if (status === "cancelado") return "cancelado";
   return "pendente";
-}
-
-// Converte itens em string (ex: "Paracetamol × 2, Vitamina C × 1") em ItemCompra[]
-function parseItens(itensStr: string, total: number): ItemCompra[] {
-  if (!itensStr.trim()) return [{ nome: "—", quantidade: 1, preco: total }];
-  return itensStr.split(",").map((parte) => {
-    const match = parte.trim().match(/^(.+?)\s*×\s*(\d+)$/);
-    const nome = match ? match[1].trim() : parte.trim();
-    const quantidade = match ? parseInt(match[2], 10) : 1;
-    return { nome, quantidade, preco: 0 };
-  });
 }
 
 // -------------------------------------------------------
@@ -125,22 +114,41 @@ function BadgeStatus({ status }: { status: StatusEntrega }) {
 // -------------------------------------------------------
 export function HistoricoCompras() {
   const { user } = useAuth();
-  const pedidos = useAdminStore((s) => s.pedidos);
+  const [compras, setCompras] = useState<Compra[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Compras do cliente a partir do store partilhado com admin/farmácia
-  const compras: Compra[] = useMemo(() => {
-    const clienteId = user?.id ?? "";
-    return pedidos
-      .filter((p) => p.clienteId === clienteId)
-      .map((p) => ({
-        id: p.id,
-        farmacia: p.farmacia,
-        itens: parseItens(p.itens, p.total),
-        dataCompra: p.dataPedido,
-        total: p.total,
-        statusEntrega: toStatusEntrega(p.status),
-      }));
-  }, [pedidos, user?.id]);
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await orderService.getMyOrders();
+        if (res.success && res.data.pedidos) {
+          const formatted = res.data.pedidos.map((p: any) => ({
+            id: p.id,
+            farmacia: p.PedidoItems?.[0]?.farmacia_nome || (p.PedidoItems?.[0]?.farmacia_id ? `Farmácia #${p.PedidoItems[0].farmacia_id}` : "Farmácia"),
+            itens: p.PedidoItems.map((item: any) => ({
+              nome: item.nome,
+              quantidade: item.quantidade,
+              preco: Number(item.preco_unitario),
+            })),
+            dataCompra: p.data_pedido,
+            total: Number(p.total),
+            statusEntrega: toStatusEntrega(p.status),
+          }));
+          setCompras(formatted);
+        } else {
+          setError(res.error || "Erro ao carregar histórico");
+        }
+      } catch (err) {
+        setError("Falha na conexão com o servidor");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    if (user) fetchOrders();
+  }, [user]);
 
   // Estado do campo de pesquisa livre (por farmácia, medicamento ou data)
   const [busca, setBusca] = useState("");
@@ -242,7 +250,22 @@ export function HistoricoCompras() {
           </select>
         </div>
 
-        {comprasFiltradas.length === 0 ? (
+        {/* Loading / Error */}
+        {isLoading && (
+          <div className="twala-card text-center py-16">
+            <div className="twala-loading mx-auto mb-4" />
+            <p style={{ fontFamily: "'Roboto', sans-serif", color: "#4a7856" }}>A carregar histórico...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="twala-card p-6 text-center text-red-500">
+            <p>{error}</p>
+            <button onClick={() => window.location.reload()} className="twala-btn-outline mt-4">Tentar Novamente</button>
+          </div>
+        )}
+
+        {!isLoading && !error && comprasFiltradas.length === 0 ? (
           <div className="twala-card flex flex-col items-center justify-center py-16 text-center">
             <div style={{ width: 72, height: 72, borderRadius: 16, backgroundColor: "rgba(44,85,48,0.08)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
               <ShoppingBag style={{ width: 36, height: 36, color: "#4a7856" }} />

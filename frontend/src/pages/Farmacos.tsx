@@ -8,15 +8,14 @@ import { FloatingChat } from "../components/layout/FloatingChat";
 import { medicamentoService } from "../services/medicamentoService";
 import type { Medicamento } from "../types";
 
-const categorias = ["Todos", "Analgésicos", "Antibióticos", "Vitaminas", "Antialérgicos", "Digestivos"];
-const provincias = ["Todas", "Luanda", "Benguela", "Huíla", "Huambo"];
-const farmacias = ["Todas", "Farmácia Central", "Farmácia Saúde", "Farmácia Vida", "Farmácia Bem-Estar"];
-
 export function Farmacos() {
   const { addItem } = useCartStore();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [medicamentos, setMedicamentos] = useState<Medicamento[]>([]);
+  const [categorias, setCategorias] = useState<string[]>(["Todos"]);
+  const [farmacias, setFarmacias] = useState<any[]>([]);
+  const [provincias, setProvincias] = useState<string[]>(["Todas"]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoria, setSelectedCategoria] = useState("Todos");
@@ -25,12 +24,26 @@ export function Farmacos() {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    medicamentoService.getAll().then((res) => {
-      if (res.success && res.data) {
-        setMedicamentos(res.data);
+    const init = async () => {
+      setIsLoading(true);
+      const [resMed, resCat, resFarm] = await Promise.all([
+        medicamentoService.getAll(),
+        medicamentoService.getCategorias(),
+        medicamentoService.getFarmacias(),
+      ]);
+
+      if (resMed.success && resMed.data) setMedicamentos(resMed.data);
+      if (resCat.success && resCat.data) {
+        setCategorias(["Todos", ...resCat.data.map((c: any) => c.nome)]);
+      }
+      if (resFarm.success && resFarm.data) {
+        setFarmacias(resFarm.data);
+        const provs = Array.from(new Set(resFarm.data.map((f: any) => f.provincia)));
+        setProvincias(["Todas", ...provs as string[]]);
       }
       setIsLoading(false);
-    });
+    };
+    init();
   }, []);
 
   const filteredMedicamentos = medicamentos.filter((med) => {
@@ -47,11 +60,12 @@ export function Farmacos() {
       return;
     }
     addItem({
-      id: `${med.farmacia}-${med.id}`,
+      id: med.id,
       name: med.nome,
       price: med.price,
       quantity: 1,
       farmacia: med.farmacia,
+      farmaciaId: med.farmaciaId,
       image: med.image,
       requiresPrescription: med.requiresPrescription,
     });
@@ -159,7 +173,8 @@ export function Farmacos() {
                   Farmácia
                 </label>
                 <select value={selectedFarmacia} onChange={(e) => setSelectedFarmacia(e.target.value)} className="twala-input w-full">
-                  {farmacias.map((farm) => <option key={farm} value={farm}>{farm}</option>)}
+                  <option value="Todas">Todas</option>
+                  {farmacias.map((f) => <option key={f.id} value={f.nome}>{f.nome}</option>)}
                 </select>
               </div>
             </div>
@@ -253,7 +268,7 @@ export function Farmacos() {
                       marginBottom: 8,
                     }}
                   >
-                    {med.name}
+                    {med.nome}
                   </h3>
 
                   <div className="space-y-1 mb-4">

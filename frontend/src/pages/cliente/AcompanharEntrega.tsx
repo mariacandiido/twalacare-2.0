@@ -2,35 +2,39 @@
 // Mostra um mapa simulado com a rota da entrega, o estado actual e um contador regressivo.
 // As fases avançam automaticamente para simular uma entrega em tempo real.
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Truck,
   CheckCircle2,
-  Clock,
   MapPin,
   Package,
   Star,
   Phone,
   User,
+  ArrowLeft,
+  XCircle,
 } from "lucide-react";
+import { orderService } from "../../services/orderService";
 
 // -------------------------------------------------------
 // TIPOS E CONFIGURAÇÕES DAS FASES DE ENTREGA
 // -------------------------------------------------------
 
 type FaseEntrega =
+  | "pendente"
   | "confirmado"    // pedido confirmado, aguarda preparação
-  | "preparacao"    // farmácia está a preparar os medicamentos
+  | "em_preparacao"    // farmácia está a preparar os medicamentos
   | "recolha"       // entregador está a recolher o pedido
-  | "transito"      // pedido a caminho do cliente
+  | "em_transito"      // pedido a caminho do cliente
   | "entregue";     // entrega concluída
 
-// Ordem sequencial das fases (usada para calcular a próxima fase)
+// Ordem sequencial das fases
 const ORDEM_FASES: FaseEntrega[] = [
+  "pendente",
   "confirmado",
-  "preparacao",
-  "recolha",
-  "transito",
+  "em_preparacao",
+  "em_transito",
   "entregue",
 ];
 
@@ -39,25 +43,25 @@ const FASES: Record<
   FaseEntrega,
   { label: string; descricao: string; cor: string; bgCor: string }
 > = {
+  pendente: {
+    label: "Pendente",
+    descricao: "O seu pedido aguarda confirmação pela farmácia.",
+    cor: "#6b7280",
+    bgCor: "#f3f4f6",
+  },
   confirmado: {
     label: "Pedido Confirmado",
     descricao: "O seu pedido foi recebido e está a ser processado.",
     cor: "#2563eb",
     bgCor: "#eff6ff",
   },
-  preparacao: {
+  em_preparacao: {
     label: "Em Preparação",
     descricao: "A farmácia está a preparar os seus medicamentos.",
     cor: "#d97706",
     bgCor: "#fffbeb",
   },
-  recolha: {
-    label: "Recolha pelo Entregador",
-    descricao: "O entregador está a recolher o seu pedido na farmácia.",
-    cor: "#7c3aed",
-    bgCor: "#f5f3ff",
-  },
-  transito: {
+  em_transito: {
     label: "Em Trânsito",
     descricao: "O seu pedido está a caminho. Chegará em breve!",
     cor: "#16a34a",
@@ -69,16 +73,14 @@ const FASES: Record<
     cor: "#15803d",
     bgCor: "#dcfce7",
   },
+  recolha: { // Mantido por compatibilidade se necessário, mas mapeado para em_transito no backend
+    label: "Recolha pelo Entregador",
+    descricao: "O entregador está a recolher o seu pedido na farmácia.",
+    cor: "#7c3aed",
+    bgCor: "#f5f3ff",
+  },
 };
 
-// Tempo (em milissegundos) que cada fase demora antes de avançar para a seguinte
-const TEMPOS_FASE: Record<FaseEntrega, number> = {
-  confirmado: 4000,
-  preparacao: 6000,
-  recolha: 5000,
-  transito: 8000,
-  entregue: 0, // fase final — não avança
-};
 
 // -------------------------------------------------------
 // COMPONENTE: TruckAnimado
@@ -142,10 +144,11 @@ function TruckAnimado({ progresso }: { progresso: number }) {
 function MapaSimulado({ fase }: { fase: FaseEntrega }) {
   // Percentagem de progresso do caminhão conforme a fase
   const PROGRESSO: Record<FaseEntrega, number> = {
+    pendente: 0,
     confirmado: 0,
-    preparacao: 5,
+    em_preparacao: 5,
     recolha: 20,
-    transito: 65,
+    em_transito: 65,
     entregue: 100,
   };
 
@@ -292,60 +295,72 @@ function MapaSimulado({ fase }: { fase: FaseEntrega }) {
 // COMPONENTE PRINCIPAL — AcompanharEntrega
 // -------------------------------------------------------
 export function AcompanharEntrega() {
-  // Fase inicial do ciclo de entrega
-  const [fase, setFase] = useState<FaseEntrega>("confirmado");
-
-  // Contador regressivo para a próxima fase (em segundos)
-  const [tempoRestante, setTempoRestante] = useState(
-    TEMPOS_FASE["confirmado"] / 1000
-  );
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [pedido, setPedido] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Controla a avaliação com estrelas (visível após entrega)
   const [avaliacao, setAvaliacao] = useState(0);
   const [avaliacaoFeita, setAvaliacaoFeita] = useState(false);
 
-  // Número de pedido gerado aleatoriamente na montagem do componente
-  const numeroPedido = useRef(
-    "TW-" + Math.floor(10000 + Math.random() * 90000)
-  ).current;
-
-  // ---- Avança as fases automaticamente ----
-  // A cada vez que "fase" muda, agenda um timeout para avançar para a próxima.
-  // Quando a fase é "entregue", não agenda nada.
   useEffect(() => {
-    if (fase === "entregue") return;
+    if (!id) {
+      setError("ID do pedido não fornecido");
+      setIsLoading(false);
+      return;
+    }
 
-    const indiceFaseActual = ORDEM_FASES.indexOf(fase);
-    const proximaFase = ORDEM_FASES[indiceFaseActual + 1];
-    const duracao = TEMPOS_FASE[fase];
+    const fetchPedido = async () => {
+      try {
+        const res = await orderService.getById(id);
+        if (res.success) {
+          setPedido(res.data.pedido);
+        } else {
+          setError(res.error || "Erro ao carregar detalhes do pedido");
+        }
+      } catch (err) {
+        setError("Falha na conexão com o servidor");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    // Reinicia o contador regressivo para a fase actual
-    setTempoRestante(duracao / 1000);
+    fetchPedido();
+    
+    // Polling a cada 10 segundos se não tiver sido entregue
+    const interval = setInterval(() => {
+      if (pedido && pedido.status !== "entregue") {
+        fetchPedido();
+      }
+    }, 10000);
 
-    const timer = setTimeout(() => {
-      setFase(proximaFase);
-    }, duracao);
+    return () => clearInterval(interval);
+  }, [id, pedido?.status]);
 
-    return () => clearTimeout(timer);
-  }, [fase]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="twala-loading" />
+      </div>
+    );
+  }
 
-  // ---- Decrementa o contador a cada segundo ----
-  // Usa um intervalo independente que conta de duracao/1000 até 0.
-  // Usa ref para não recriar o intervalo em cada render.
-  useEffect(() => {
-    if (fase === "entregue") return;
+  if (error || !pedido) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
+        <XCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-xl font-bold text-gray-800">{error || "Pedido não encontrado"}</h2>
+        <button onClick={() => navigate("/cliente/historico-compras")} className="twala-btn-primary mt-6">
+          Voltar ao Histórico
+        </button>
+      </div>
+    );
+  }
 
-    const intervalo = setInterval(() => {
-      setTempoRestante((prev) => {
-        if (prev <= 1) return 0;
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(intervalo);
-  }, [fase]); // só recria quando a fase muda (não a cada tick)
-
-  const faseConfig = FASES[fase];
+  const fase: FaseEntrega = (pedido.status === "em_transito" ? "em_transito" : (pedido.status as FaseEntrega)) || "pendente";
+  const faseConfig = FASES[fase] || FASES["pendente"];
   const indiceFaseActual = ORDEM_FASES.indexOf(fase);
 
   return (
@@ -353,11 +368,16 @@ export function AcompanharEntrega() {
       <div className="max-w-2xl mx-auto space-y-5">
 
         {/* ---- Cabeçalho ---- */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Acompanhar Entrega</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Pedido <span className="font-semibold text-green-700">{numeroPedido}</span>
-          </p>
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-white rounded-full transition shadow-sm">
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Acompanhar Entrega</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Pedido <span className="font-semibold text-green-700">#{pedido.id}</span>
+            </p>
+          </div>
         </div>
 
         {/* ---- Estado actual com cor dinâmica ---- */}
@@ -392,13 +412,6 @@ export function AcompanharEntrega() {
               <p className="text-sm text-gray-600 mt-0.5">
                 {faseConfig.descricao}
               </p>
-              {fase !== "entregue" && (
-                <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Próxima actualização em{" "}
-                  <span className="font-semibold">{tempoRestante}s</span>
-                </p>
-              )}
             </div>
           </div>
         </div>
@@ -412,7 +425,7 @@ export function AcompanharEntrega() {
             </span>
           </div>
           <div className="px-3 pb-3">
-            <MapaSimulado fase={fase} />
+            <MapaSimulado fase={fase === "em_transito" ? "transito" : (fase as any)} />
           </div>
         </div>
 
@@ -429,7 +442,6 @@ export function AcompanharEntrega() {
 
               return (
                 <div key={f} className="flex items-start gap-3">
-                  {/* Círculo indicador */}
                   <div className="flex flex-col items-center">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500"
@@ -455,7 +467,6 @@ export function AcompanharEntrega() {
                         <div className="w-3 h-3 rounded-full bg-gray-300" />
                       )}
                     </div>
-                    {/* Linha de ligação entre fases */}
                     {index < ORDEM_FASES.length - 1 && (
                       <div
                         className="w-0.5 h-6 mt-1 transition-all duration-500"
@@ -466,7 +477,6 @@ export function AcompanharEntrega() {
                     )}
                   </div>
 
-                  {/* Texto da fase */}
                   <div className="pb-4">
                     <p
                       className="text-sm font-semibold transition-all duration-300"
@@ -503,45 +513,40 @@ export function AcompanharEntrega() {
                 <Package className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <p className="text-xs text-gray-500">Origem</p>
+                <p className="text-xs text-gray-500">Endereço de Entrega</p>
                 <p className="text-sm font-medium text-gray-800">
-                  Farmácia Saúde — Ingombota, Luanda
+                  {pedido.endereco_entrega}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-4 h-4 text-red-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Destino</p>
-                <p className="text-sm font-medium text-gray-800">
-                  Rua da Missão, 45 — Ingombota, Luanda
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Entregador</p>
-                <p className="text-sm font-medium text-gray-800">
-                  Carlos Entregador
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Phone className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Contacto do Entregador</p>
-                <p className="text-sm font-medium text-gray-800">
-                  +244 900 000 003
-                </p>
-              </div>
-            </div>
+            {pedido.Entrega && (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <User className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Entregador</p>
+                    <p className="text-sm font-medium text-gray-800">
+                      {pedido.Entrega.Entregador?.User?.nome || "A aguardar atribuição"}
+                    </p>
+                  </div>
+                </div>
+                {pedido.Entrega.Entregador?.User?.telefone && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Phone className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Contacto do Entregador</p>
+                      <p className="text-sm font-medium text-gray-800">
+                        {pedido.Entrega.Entregador.User.telefone}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Star, MapPin, Clock, Phone, Building2 } from "lucide-react";
 import { ImageWithFallback } from "../components/ui/ImageWithFallback";
 import { FloatingChat } from "../components/layout/FloatingChat";
@@ -12,8 +12,13 @@ export function Farmacias() {
   const [showOnlyOpen, setShowOnlyOpen] = useState(false);
 
   // Apenas farmácias aprovadas pelo admin são visíveis ao público
-  const { obterAprovadas } = useFarmaciasStore();
-  const farmaciasAprovadas = obterAprovadas();
+  const { farmacias, fetchFarmacias, isLoading } = useFarmaciasStore();
+
+  useEffect(() => {
+    fetchFarmacias();
+  }, [fetchFarmacias]);
+
+  const farmaciasAprovadas = farmacias;
 
   const filteredFarmacias = farmaciasAprovadas.filter((farm) => {
     const matchesSearch = farm.nome.toLowerCase().includes(searchTerm.toLowerCase());

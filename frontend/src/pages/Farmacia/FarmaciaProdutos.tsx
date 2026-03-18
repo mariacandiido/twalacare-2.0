@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   Pencil,
@@ -8,84 +8,58 @@ import {
   Search,
   FileText,
   UploadCloud,
+  AlertCircle,
 } from "lucide-react";
 import { FarmaciaLayout } from "../../layouts/FarmaciaLayout";
-import type { ProdutoFarmacia } from "../../types/farmacia.types";
-
-const produtosMock: ProdutoFarmacia[] = [
-  {
-    id: "1",
-    nome: "Paracetamol 500mg",
-    preco: 600,
-    descricao: "Analgésico e antipirético para dores leves e febre.",
-    imagem: "",
-    precisaReceita: false,
-    estoque: 120,
-    categoria: "Analgésico",
-  },
-  {
-    id: "2",
-    nome: "Amoxicilina 875mg",
-    preco: 3500,
-    descricao: "Antibiótico de largo espectro para infecções bacterianas.",
-    imagem: "",
-    precisaReceita: true,
-    estoque: 45,
-    categoria: "Antibiótico",
-  },
-  {
-    id: "3",
-    nome: "Ibuprofeno 400mg",
-    preco: 700,
-    descricao: "Anti-inflamatório, analgésico e antipirético.",
-    imagem: "",
-    precisaReceita: false,
-    estoque: 80,
-    categoria: "Anti-inflamatório",
-  },
-  {
-    id: "4",
-    nome: "Omeprazol 20mg",
-    preco: 900,
-    descricao: "Protetor gástrico para refluxo e úlceras.",
-    imagem: "",
-    precisaReceita: true,
-    estoque: 60,
-    categoria: "Gastro",
-  },
-  {
-    id: "5",
-    nome: "Loratadina 10mg",
-    preco: 500,
-    descricao: "Anti-histamínico para alergias e rinite.",
-    imagem: "",
-    precisaReceita: false,
-    estoque: 95,
-    categoria: "Antialérgico",
-  },
-];
+import { medicamentoService } from "../../services/medicamentoService";
+import type { Medicamento } from "../../types";
 
 const emptyForm = {
   nome: "",
   preco: "",
   descricao: "",
-  imagem: "",
+  imagem: undefined as File | string | undefined,
+  imagemUrl: "",
   precisaReceita: false,
   estoque: "",
   categoria: "",
 };
 
 export function FarmaciaProdutos() {
-  const [produtos, setProdutos] = useState<ProdutoFarmacia[]>(produtosMock);
+  const [produtos, setProdutos] = useState<Medicamento[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchProdutos();
+  }, []);
+
+  const fetchProdutos = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await medicamentoService.getMeusMedicamentos();
+      if (res.success) {
+        setProdutos(res.data || []);
+      } else {
+        setError(res.error || "Erro ao carregar produtos");
+      }
+    } catch (err) {
+      setError("Falha na conexão com o servidor");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filtered = produtos.filter((p) =>
     p.nome.toLowerCase().includes(search.toLowerCase()) ||
-    p.categoria.toLowerCase().includes(search.toLowerCase())
+    (p.categoria && p.categoria.toLowerCase().includes(search.toLowerCase()))
   );
 
   function openAdd() {
@@ -94,59 +68,68 @@ export function FarmaciaProdutos() {
     setShowModal(true);
   }
 
-  function openEdit(produto: ProdutoFarmacia) {
+  function openEdit(produto: Medicamento) {
     setEditingId(produto.id);
     setForm({
       nome: produto.nome,
       preco: String(produto.preco),
-      descricao: produto.descricao,
-      imagem: produto.imagem,
-      precisaReceita: produto.precisaReceita,
-      estoque: String(produto.estoque),
-      categoria: produto.categoria,
+      descricao: produto.descricao || "",
+      imagem: undefined,
+      imagemUrl: produto.imagem || "",
+      precisaReceita: produto.precisa_receita || false,
+      estoque: String(produto.stock || 0),
+      categoria: produto.categoria || "",
     });
     setShowModal(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.nome.trim() || !form.preco || !form.categoria.trim()) return;
 
-    if (editingId) {
-      setProdutos((prev) =>
-        prev.map((p) =>
-          p.id === editingId
-            ? {
-                ...p,
-                nome: form.nome,
-                preco: Number(form.preco),
-                descricao: form.descricao,
-                imagem: form.imagem,
-                precisaReceita: form.precisaReceita,
-                estoque: Number(form.estoque),
-                categoria: form.categoria,
-              }
-            : p
-        )
-      );
-    } else {
-      const novo: ProdutoFarmacia = {
-        id: String(Date.now()),
+    setIsSaving(true);
+    try {
+      const data = {
         nome: form.nome,
         preco: Number(form.preco),
         descricao: form.descricao,
-        imagem: form.imagem,
-        precisaReceita: form.precisaReceita,
-        estoque: Number(form.estoque),
+        precisa_receita: form.precisaReceita,
+        stock: Number(form.estoque),
         categoria: form.categoria,
+        imagem: form.imagem instanceof File ? form.imagem : undefined,
       };
-      setProdutos((prev) => [novo, ...prev]);
+
+      let res;
+      if (editingId) {
+        res = await medicamentoService.update(editingId, data as any);
+      } else {
+        res = await medicamentoService.create(data as any);
+      }
+
+      if (res.success) {
+        fetchProdutos();
+        setShowModal(false);
+      } else {
+        alert(res.error || "Erro ao guardar produto");
+      }
+    } catch (err) {
+      alert("Erro de conexão");
+    } finally {
+      setIsSaving(false);
     }
-    setShowModal(false);
   }
 
-  function handleDelete(id: string) {
-    setProdutos((prev) => prev.filter((p) => p.id !== id));
-    setConfirmDeleteId(null);
+  async function handleDelete(id: string) {
+    try {
+      const res = await medicamentoService.delete(id);
+      if (res.success) {
+        setProdutos((prev) => prev.filter((p) => p.id !== id));
+        setConfirmDeleteId(null);
+      } else {
+        alert(res.error || "Erro ao remover produto");
+      }
+    } catch (err) {
+      alert("Erro de conexão");
+    }
   }
 
   return (
@@ -160,7 +143,7 @@ export function FarmaciaProdutos() {
             </h1>
             <div style={{ width: 50, height: 3, background: "linear-gradient(90deg, #2c5530, #c7a252)", borderRadius: 2, marginBottom: 4 }} />
             <p style={{ fontFamily: "'Roboto', sans-serif", color: "#4a7856", fontSize: 13 }}>
-              {produtos.length} produto(s) cadastrado(s)
+              {isLoading ? "A carregar..." : `${produtos.length} produto(s) cadastrado(s)`}
             </p>
           </div>
           <button
@@ -180,12 +163,23 @@ export function FarmaciaProdutos() {
             placeholder="Buscar por nome ou categoria..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl w-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+            className="pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl w-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm"
           />
         </div>
 
-        {/* Tabela / Grid de produtos */}
-        {filtered.length === 0 ? (
+        {/* Loading / Error / Empty States */}
+        {isLoading ? (
+          <div className="bg-white rounded-2xl shadow-md p-12 text-center">
+            <div className="twala-loading mx-auto mb-4" />
+            <p className="text-gray-500">A carregar os seus produtos...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-white rounded-2xl shadow-md p-12 text-center text-red-500">
+            <AlertCircle className="w-12 h-12 mx-auto mb-3" />
+            <p className="font-medium">{error}</p>
+            <button onClick={fetchProdutos} className="twala-btn-outline mt-4 mx-auto">Tentar Novamente</button>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="bg-white rounded-2xl shadow-md p-12 text-center">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500 font-medium">Nenhum produto encontrado</p>
@@ -228,7 +222,11 @@ export function FarmaciaProdutos() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
-                            <Package className="w-5 h-5 text-green-600" />
+                            {produto.imagem ? (
+                              <img src={produto.imagem} className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <Package className="w-5 h-5 text-green-600" />
+                            )}
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900 text-sm">
@@ -242,7 +240,7 @@ export function FarmaciaProdutos() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium">
-                          {produto.categoria}
+                          {produto.categoria || "N/A"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -252,13 +250,13 @@ export function FarmaciaProdutos() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`text-sm font-medium ${produto.estoque < 20 ? "text-red-600" : "text-gray-700"}`}
+                          className={`text-sm font-medium ${(produto.stock || 0) < 20 ? "text-red-600" : "text-gray-700"}`}
                         >
-                          {produto.estoque} un.
+                          {produto.stock || 0} un.
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {produto.precisaReceita ? (
+                        {produto.precisa_receita ? (
                           <span className="flex items-center space-x-1 text-xs text-orange-600 bg-orange-50 px-2.5 py-1 rounded-full font-medium w-fit">
                             <FileText className="w-3 h-3" />
                             <span>Necessária</span>
@@ -409,16 +407,18 @@ export function FarmaciaProdutos() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) {
-                        const url = URL.createObjectURL(file);
-                        setForm({ ...form, imagem: url });
+                        setForm({ ...form, imagem: file, imagemUrl: URL.createObjectURL(file) });
                       }
                     }}
                   />
                 </label>
-                {form.imagem && (
-                  <p className="text-xs text-green-600 mt-1">
-                    Imagem selecionada
-                  </p>
+                {form.imagemUrl && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <img src={form.imagemUrl} className="w-12 h-12 object-cover rounded-lg border" />
+                    <p className="text-xs text-green-600">
+                      {form.imagem ? "Nova imagem selecionada" : "Imagem atual"}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -451,10 +451,10 @@ export function FarmaciaProdutos() {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!form.nome.trim() || !form.preco || !form.categoria.trim()}
+                disabled={isSaving || !form.nome.trim() || !form.preco || !form.categoria.trim()}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2.5 rounded-xl font-medium transition shadow-md shadow-green-200"
               >
-                {editingId ? "Salvar Alterações" : "Adicionar Produto"}
+                {isSaving ? "A guardar..." : editingId ? "Salvar Alterações" : "Adicionar Produto"}
               </button>
             </div>
           </div>

@@ -1,266 +1,184 @@
 import { create } from 'zustand';
-import type {
-  EntregaDisponivel,
-  EntregaAtiva,
-  EntregaConcluida,
-  PerfilEntregador,
-  StatusEntregaType,
-} from '../types/entregador.types';
+import { apiRequest } from '../services/authService';
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+export interface Entrega {
+  id: string;
+  pedidoId: string;
+  farmacia: string;
+  farmaciaEndereco: string;
+  cliente: string;
+  clienteEndereco: string;
+  clienteTelefone: string;
+  status: string;
+  valor: number;
+  data: string;
+  aceitoEm?: string;
+  distancia?: string;
+  tempoEstimado?: string;
+  itens?: string[];
+  clienteCoords?: { lat: number; lng: number };
+  farmaciaCoords?: { lat: number; lng: number };
+}
 
-const mockEntregasDisponiveis: EntregaDisponivel[] = [
-  {
-    id: 'ed-001',
-    farmacia: 'Farmácia Saúde Viva',
-    farmaciaEndereco: 'Rua Direita, 45 – Maianga, Luanda',
-    cliente: 'Ana Beatriz Santos',
-    clienteEndereco: 'Av. Lenine, Bloco 5 Ap. 12 – Ingombota',
-    clienteTelefone: '+244 923 456 789',
-    distancia: '2.3 km',
-    valor: 1500,
-    itens: ['Paracetamol 500mg × 2', 'Vitamina C × 1'],
-    criadoEm: '14:32',
-    tempoEstimado: '15 min',
-  },
-  {
-    id: 'ed-002',
-    farmacia: 'Farmácia Nova Vida',
-    farmaciaEndereco: 'Av. 4 de Fevereiro, 120 – Ilha de Luanda',
-    cliente: 'Carlos Mendes Ferreira',
-    clienteEndereco: 'Rua da Missão, 78 – Sambizanga',
-    clienteTelefone: '+244 912 345 678',
-    distancia: '4.7 km',
-    valor: 2000,
-    itens: ['Amoxicilina 875mg × 1', 'Ibuprofeno 400mg × 2'],
-    criadoEm: '14:20',
-    tempoEstimado: '25 min',
-  },
-  {
-    id: 'ed-003',
-    farmacia: 'Farmácia Central',
-    farmaciaEndereco: 'Rua Amilcar Cabral, 33 – Alvalade',
-    cliente: 'Maria Fernanda Lopes',
-    clienteEndereco: 'Rua Joaquim Kapango, 15 – Bairro Azul',
-    clienteTelefone: '+244 935 123 456',
-    distancia: '1.8 km',
-    valor: 1200,
-    itens: ['Omeprazol 20mg × 1'],
-    criadoEm: '14:15',
-    tempoEstimado: '10 min',
-  },
-  {
-    id: 'ed-004',
-    farmacia: 'Farmácia Bem Estar',
-    farmaciaEndereco: 'Av. Hoji Ya Henda, 200 – Rangel',
-    cliente: 'António Joaquim Teixeira',
-    clienteEndereco: 'Rua das Acácias, 9 – Golfe',
-    clienteTelefone: '+244 944 678 901',
-    distancia: '5.2 km',
-    valor: 2500,
-    itens: ['Metformina 850mg × 2', 'Aspirina 100mg × 1', 'Losartana 50mg × 1'],
-    criadoEm: '14:05',
-    tempoEstimado: '30 min',
-  },
-];
-
-const mockEntregasAtivas: EntregaAtiva[] = [
-  {
-    id: 'ea-001',
-    farmacia: 'Farmácia Saúde Total',
-    farmaciaEndereco: 'Rua da Liberdade, 67 – Rangel',
-    cliente: 'Pedro Augusto Silva',
-    clienteEndereco: 'Av. Brasil, Bloco 12 – Patriota',
-    clienteTelefone: '+244 942 789 123',
-    status: 'a-caminho-cliente',
-    valor: 1800,
-    aceitoEm: '13:45',
-    distancia: '3.1 km',
-    tempoEstimado: '8 min',
-  },
-];
-
-const mockHistorico: EntregaConcluida[] = [
-  {
-    id: 'ec-001',
-    farmacia: 'Farmácia Saúde Total',
-    farmaciaEndereco: 'Rua da Liberdade, 67 – Rangel',
-    cliente: 'João Paulo Rodrigues',
-    clienteEndereco: 'Rua da Praia, 34 – Miramar',
-    data: '08/03/2026 – 12:30',
-    valor: 1500,
-    status: 'entregue',
-    duracao: '22 min',
-    avaliacao: 5,
-  },
-  {
-    id: 'ec-002',
-    farmacia: 'Farmácia Nova Esperança',
-    farmaciaEndereco: 'Rua Amilcar Cabral, 99 – Alvalade',
-    cliente: 'Luísa Maria Gonçalves',
-    clienteEndereco: 'Av. Deolinda Rodrigues, 18 – Palanca',
-    data: '08/03/2026 – 11:10',
-    valor: 2200,
-    status: 'entregue',
-    duracao: '31 min',
-    avaliacao: 5,
-  },
-  {
-    id: 'ec-003',
-    farmacia: 'Farmácia Saúde Viva',
-    farmaciaEndereco: 'Rua Direita, 45 – Maianga, Luanda',
-    cliente: 'Roberto Carlos Neto',
-    clienteEndereco: 'Rua dos Coqueiros, 7 – Rocha Pinto',
-    data: '07/03/2026 – 17:45',
-    valor: 1800,
-    status: 'entregue',
-    duracao: '19 min',
-    avaliacao: 4,
-  },
-  {
-    id: 'ec-004',
-    farmacia: 'Farmácia Central',
-    farmaciaEndereco: 'Rua Amilcar Cabral, 33 – Alvalade',
-    cliente: 'Fernanda Baptista Costa',
-    clienteEndereco: 'Bairro Golfe, Rua 5 – Talatona',
-    data: '07/03/2026 – 14:20',
-    valor: 1200,
-    status: 'entregue',
-    duracao: '25 min',
-    avaliacao: 5,
-  },
-  {
-    id: 'ec-005',
-    farmacia: 'Farmácia Bem Estar',
-    farmaciaEndereco: 'Av. Hoji Ya Henda, 200 – Rangel',
-    cliente: 'Simão Pedro Afonso',
-    clienteEndereco: 'Rua Kwame Nkrumah, 45 – Maculusso',
-    data: '06/03/2026 – 09:15',
-    valor: 3000,
-    status: 'entregue',
-    duracao: '28 min',
-    avaliacao: 4,
-  },
-];
-
-const mockPerfil: PerfilEntregador = {
-  nome: 'Carlos Entregador',
-  email: 'entregador@gmail.com',
-  telefone: '+244 900 000 003',
-  veiculo: 'moto',
-  placaVeiculo: 'LD-12345-AX',
-  provincia: 'Luanda',
-  municipio: 'Viana',
-  disponivel: true,
-  avaliacao: 4.8,
-  ganhosMes: 45000,
-  totalEntregas: 127,
-};
-
-// ─── Store ────────────────────────────────────────────────────────────────────
+export interface EntregadorPerfil {
+  nome: string;
+  email: string;
+  telefone: string;
+  veiculo: string;
+  placaVeiculo: string;
+  provincia: string;
+  municipio: string;
+  totalEntregas: number;
+  avaliacao: number;
+  ganhosMes: number;
+}
 
 interface EntregadorState {
   disponivel: boolean;
-  entregasDisponiveis: EntregaDisponivel[];
-  entregasAtivas: EntregaAtiva[];
-  historico: EntregaConcluida[];
-  perfil: PerfilEntregador;
+  entregasDisponiveis: Entrega[];
+  entregasAtivas: Entrega[];
+  historico: Entrega[];
+  perfil: EntregadorPerfil;
+  isLoading: boolean;
+  error: string | null;
 
   // Ações
-  toggleDisponivel: () => void;
-  aceitarEntrega: (id: string) => void;
-  rejeitarEntrega: (id: string) => void;
-  atualizarStatus: (id: string, novoStatus: StatusEntregaType) => void;
-  atualizarPerfil: (dados: Partial<PerfilEntregador>) => void;
+  toggleDisponivel: () => Promise<void>;
+  fetchEntregas: () => Promise<void>;
+  aceitarEntrega: (id: string) => Promise<boolean>;
+  atualizarStatus: (id: string, novoStatus: string) => Promise<boolean>;
+  atualizarPerfil: (dados: Partial<EntregadorPerfil>) => Promise<boolean>;
 }
 
 export const useEntregadorStore = create<EntregadorState>((set, get) => ({
   disponivel: true,
-  entregasDisponiveis: mockEntregasDisponiveis,
-  entregasAtivas: mockEntregasAtivas,
-  historico: mockHistorico,
-  perfil: mockPerfil,
-
-  toggleDisponivel: () =>
-    set((state) => ({ disponivel: !state.disponivel })),
-
-  aceitarEntrega: (id: string) => {
-    const { entregasDisponiveis } = get();
-    const entrega = entregasDisponiveis.find((e) => e.id === id);
-    if (!entrega) return;
-
-    const agora = new Date();
-    const hora = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}`;
-
-    const novaAtiva: EntregaAtiva = {
-      id: entrega.id,
-      farmacia: entrega.farmacia,
-      farmaciaEndereco: entrega.farmaciaEndereco,
-      cliente: entrega.cliente,
-      clienteEndereco: entrega.clienteEndereco,
-      clienteTelefone: entrega.clienteTelefone,
-      status: 'indo-farmacia',
-      valor: entrega.valor,
-      aceitoEm: hora,
-      distancia: entrega.distancia,
-      tempoEstimado: entrega.tempoEstimado,
-    };
-
-    set((state) => ({
-      entregasDisponiveis: state.entregasDisponiveis.filter((e) => e.id !== id),
-      entregasAtivas: [...state.entregasAtivas, novaAtiva],
-    }));
+  entregasDisponiveis: [],
+  entregasAtivas: [],
+  historico: [],
+  perfil: {
+    nome: '',
+    email: '',
+    telefone: '',
+    veiculo: 'moto',
+    placaVeiculo: '',
+    provincia: 'Luanda',
+    municipio: 'Viana',
+    totalEntregas: 0,
+    avaliacao: 5.0,
+    ganhosMes: 0
   },
+  isLoading: false,
+  error: null,
 
-  rejeitarEntrega: (id: string) => {
-    set((state) => ({
-      entregasDisponiveis: state.entregasDisponiveis.filter((e) => e.id !== id),
-    }));
-  },
-
-  atualizarStatus: (id: string, novoStatus: StatusEntregaType) => {
-    if (novoStatus === 'entregue') {
-      const { entregasAtivas } = get();
-      const entrega = entregasAtivas.find((e) => e.id === id);
-      if (!entrega) return;
-
-      const agora = new Date();
-      const dataFormatada = agora.toLocaleDateString('pt-AO', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-      const hora = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}`;
-
-      const concluida: EntregaConcluida = {
-        id: entrega.id,
-        farmacia: entrega.farmacia,
-        farmaciaEndereco: entrega.farmaciaEndereco,
-        cliente: entrega.cliente,
-        clienteEndereco: entrega.clienteEndereco,
-        data: `${dataFormatada} – ${hora}`,
-        valor: entrega.valor,
-        status: 'entregue',
-        duracao: '–',
-        avaliacao: 5,
-      };
-
-      set((state) => ({
-        entregasAtivas: state.entregasAtivas.filter((e) => e.id !== id),
-        historico: [concluida, ...state.historico],
-      }));
-    } else {
-      set((state) => ({
-        entregasAtivas: state.entregasAtivas.map((e) =>
-          e.id === id ? { ...e, status: novoStatus } : e
-        ),
-      }));
+  toggleDisponivel: async () => {
+    const novoEstado = !get().disponivel;
+    const res = await apiRequest("/entregador/disponibilidade", "PUT", { isAvailable: novoEstado });
+    if (res.success) {
+      set({ disponivel: novoEstado });
     }
   },
 
-  atualizarPerfil: (dados: Partial<PerfilEntregador>) => {
-    set((state) => ({
-      perfil: { ...state.perfil, ...dados },
-    }));
+  fetchEntregas: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const [disponiveisRes, atribuidosRes, historicoRes, meRes] = await Promise.all([
+        apiRequest<any[]>("/entrega/disponiveis", "GET"),
+        apiRequest<any[]>("/entregador/pedidos-atribuidos", "GET"),
+        apiRequest<any[]>("/entregador/historico", "GET"),
+        apiRequest<any>("/auth/me", "GET")
+      ]);
+
+      const mapEntrega = (e: any): Entrega => ({
+        id: e.id.toString(),
+        pedidoId: e.pedido_id?.toString() || "N/A",
+        status: e.status?.toLowerCase() || "pendente",
+        valor: Number(e.valor_entrega || 0),
+        data: e.createdAt || new Date().toISOString(),
+        farmacia: e.Pedido?.PedidoItems?.[0]?.Farmacia?.nome || "Farmácia Twala",
+        farmaciaEndereco: e.Pedido?.PedidoItems?.[0]?.Farmacia?.endereco || "Endereço Farmácia",
+        cliente: e.Pedido?.Cliente?.nome || "Cliente",
+        clienteEndereco: e.Pedido?.Endereco ? `${e.Pedido.Endereco.municipio}, ${e.Pedido.Endereco.bairro}` : "Endereço Cliente",
+        clienteTelefone: e.Pedido?.Cliente?.telefone || "N/A",
+        aceitoEm: e.updatedAt ? new Date(e.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : undefined,
+        distancia: "5.2 km", // Mockado pois backend não retorna GPS
+        tempoEstimado: "15 min",
+        itens: e.Pedido?.PedidoItems?.map((i: any) => i.nome) || []
+      });
+
+      if (disponiveisRes.success && atribuidosRes.success && historicoRes.success) {
+        set({
+          entregasDisponiveis: (disponiveisRes.data || []).map(mapEntrega),
+          entregasAtivas: (atribuidosRes.data || []).map(mapEntrega),
+          historico: (historicoRes.data || []).map(mapEntrega)
+        });
+      }
+
+      if (meRes.success && meRes.data) {
+        const u = meRes.data;
+        set({
+          disponivel: u.status === 'ATIVO',
+          perfil: {
+            ...get().perfil,
+            nome: u.nome,
+            email: u.email,
+            telefone: u.telefone || '',
+            veiculo: u.veiculo || 'moto',
+            placaVeiculo: u.placa_veiculo || '',
+            totalEntregas: (historicoRes.data || []).length,
+            ganhosMes: (historicoRes.data || []).reduce((acc: number, cur: any) => acc + Number(cur.valor_entrega || 0), 0)
+          }
+        });
+      }
+    } catch (err) {
+      set({ error: "Erro ao carregar dados do estafeta" });
+    } finally {
+      set({ isLoading: false });
+    }
   },
+
+  aceitarEntrega: async (id: string) => {
+    const res = await apiRequest(`/entrega/${id}/aceitar`, "POST");
+    if (res.success) {
+      await get().fetchEntregas();
+      return true;
+    }
+    return false;
+  },
+
+  atualizarStatus: async (id: string, novoStatus: string) => {
+    // A API tem dois jeitos: /entrega/:id/status (PATCH) ou /entregador/pedidos/:id/status (PUT)
+    // Vamos usar o do entregaRoutes que parece mais geral
+    let endpoint = `/entrega/${id}/status`;
+    let method = "PATCH";
+    
+    // Mapeamento de status para backend se necessário
+    if (novoStatus === 'entregue') {
+      endpoint = `/entregador/pedidos/${id}/concluir`;
+      method = "PUT";
+    } else if (novoStatus === 'em_transito') {
+      endpoint = `/entregador/pedidos/${id}/iniciar`;
+      method = "PUT";
+    }
+
+    const res = await apiRequest(endpoint, method, { status: novoStatus, statusMessage: `Status alterado para ${novoStatus}` });
+    if (res.success) {
+      await get().fetchEntregas();
+      return true;
+    }
+    return false;
+  },
+
+  atualizarPerfil: async (dados: Partial<EntregadorPerfil>) => {
+    const res = await apiRequest("/entregador/perfil", "PUT", {
+      nome: dados.nome,
+      telefone: dados.telefone,
+      veiculo: dados.veiculo,
+      placa_veiculo: dados.placaVeiculo
+    });
+    if (res.success) {
+      set({ perfil: { ...get().perfil, ...dados } });
+      return true;
+    }
+    return false;
+  }
 }));

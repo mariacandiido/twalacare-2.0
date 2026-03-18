@@ -7,12 +7,12 @@ import {
   Building2,
   User,
 } from 'lucide-react';
-import type { EntregaDisponivel } from '../../types/entregador.types';
+import type { Entrega } from '../../store/entregadorStore';
 
 interface EntregaCardProps {
-  entrega: EntregaDisponivel;
+  entrega: Entrega;
   onAceitar: (id: string) => void;
-  onRejeitar: (id: string) => void;
+  onRejeitar?: (id: string) => void;
 }
 
 export function EntregaCard({ entrega, onAceitar, onRejeitar }: EntregaCardProps) {
@@ -26,7 +26,9 @@ export function EntregaCard({ entrega, onAceitar, onRejeitar }: EntregaCardProps
         </div>
         <div className="flex items-center gap-1.5 bg-white/20 rounded-full px-2.5 py-1">
           <Clock className="w-3.5 h-3.5 text-white" />
-          <span className="text-white text-xs font-medium">{entrega.criadoEm}</span>
+          <span className="text-white text-xs font-medium">
+            {new Date(entrega.data).toLocaleDateString()}
+          </span>
         </div>
       </div>
 
@@ -66,15 +68,17 @@ export function EntregaCard({ entrega, onAceitar, onRejeitar }: EntregaCardProps
         </div>
 
         {/* Itens */}
-        <div className="flex items-start gap-2 bg-amber-50 rounded-xl p-3">
-          <Package className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1">Itens</p>
-            {entrega.itens.map((item, i) => (
-              <p key={i} className="text-xs text-amber-800">{item}</p>
-            ))}
+        {entrega.itens && entrega.itens.length > 0 && (
+          <div className="flex items-start gap-2 bg-amber-50 rounded-xl p-3">
+            <Package className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-1">Itens</p>
+              {entrega.itens.map((item, i) => (
+                <p key={i} className="text-xs text-amber-800">{item}</p>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Métricas */}
         <div className="grid grid-cols-3 gap-3">
@@ -96,13 +100,15 @@ export function EntregaCard({ entrega, onAceitar, onRejeitar }: EntregaCardProps
         </div>
 
         {/* Botões */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <button
-            onClick={() => onRejeitar(entrega.id)}
-            className="py-2.5 rounded-xl border-2 border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all duration-200"
-          >
-            Rejeitar
-          </button>
+        <div className="grid grid-cols-1 gap-3 pt-1">
+          {onRejeitar && (
+            <button
+              onClick={() => onRejeitar(entrega.id)}
+              className="py-2.5 rounded-xl border-2 border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all duration-200"
+            >
+              Rejeitar
+            </button>
+          )}
           <button
             onClick={() => onAceitar(entrega.id)}
             className="py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 shadow-md shadow-green-200 transition-all duration-200"

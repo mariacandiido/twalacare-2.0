@@ -1,14 +1,5 @@
 import { create } from 'zustand';
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  farmacia: string;
-  image: string;
-  requiresPrescription: boolean;
-}
+import { type CartItem } from '../types';
 
 /** Taxa de entrega fixa em Kz */
 export const DELIVERY_FEE = 500;

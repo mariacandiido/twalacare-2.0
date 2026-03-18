@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   PackageOpen,
@@ -9,6 +10,8 @@ import {
   ArrowRight,
   Clock,
   MapPin,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { EntregadorLayout } from '../../layouts/EntregadorLayout';
 import { DashboardCard } from '../../components/Entregador/DashboardCard';
@@ -18,12 +21,28 @@ import { useAuth } from '../../hooks/useAuth';
 
 export function EntregadorDashboard() {
   const { user } = useAuth();
-  const { disponivel, toggleDisponivel, entregasDisponiveis, entregasAtivas, historico, perfil } =
-    useEntregadorStore();
+  const { 
+    disponivel, 
+    toggleDisponivel, 
+    entregasDisponiveis, 
+    entregasAtivas, 
+    historico, 
+    perfil,
+    fetchEntregas,
+    isLoading,
+    error
+  } = useEntregadorStore();
 
-  const ganhosDia = entregasAtivas.reduce((acc, e) => acc + e.valor, 0) +
-    historico
-      .filter((e) => e.data.startsWith('08/03/2026'))
+  useEffect(() => {
+    fetchEntregas();
+  }, [fetchEntregas]);
+
+  const ganhosDia = historico
+      .filter((e) => {
+        const dataE = new Date(e.data).toLocaleDateString();
+        const hoje = new Date().toLocaleDateString();
+        return dataE === hoje;
+      })
       .reduce((acc, e) => acc + e.valor, 0);
 
   const cards = [
@@ -72,9 +91,28 @@ export function EntregadorDashboard() {
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
+  if (isLoading && (entregasAtivas.length === 0 && historico.length === 0)) {
+    return (
+      <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <Loader2 className="w-10 h-10 text-green-600 animate-spin mb-4" />
+          <p className="text-gray-500 font-medium">Carregando dashboard...</p>
+        </div>
+      </EntregadorLayout>
+    );
+  }
+
   return (
     <EntregadorLayout disponivel={disponivel} onToggleDisponivel={toggleDisponivel}>
       <div className="twala-page-enter p-6 lg:p-8 space-y-8" style={{ backgroundColor: "#faf7f2", minHeight: "100vh" }}>
+        {/* Erro */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
+            <AlertCircle className="w-5 h-5 text-red-500" />
+            <p className="text-sm text-red-700 font-medium">{error}</p>
+          </div>
+        )}
+
         {/* Cabeçalho */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -238,7 +276,7 @@ export function EntregadorDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0 mt-2 sm:mt-0">
-                      <StatusEntrega status={entrega.status} />
+                      <StatusEntrega status={entrega.status as any} />
                       <span style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 700, fontSize: 14, color: "#2c5530" }}>
                         {entrega.valor.toLocaleString()} Kz
                       </span>
@@ -257,7 +295,7 @@ export function EntregadorDashboard() {
 
             {[
               { label: "Ganhos do Mês", value: `${perfil.ganhosMes.toLocaleString()} Kz`, sub: "+12% vs mês anterior", icon: TrendingUp, bg: "rgba(44,85,48,0.07)", color: "#2c5530" },
-              { label: "Total de Entregas", value: perfil.totalEntregas, sub: "desde o início", icon: CheckCircle2, bg: "rgba(74,120,86,0.08)", color: "#4a7856" },
+              { label: "Total de Entregas", value: perfil.totalEntregas.toString(), sub: "desde o início", icon: CheckCircle2, bg: "rgba(74,120,86,0.08)", color: "#4a7856" },
               { label: "Avaliação Média", value: `${perfil.avaliacao} ★`, sub: "baseado em avaliações", icon: Star, bg: "rgba(199,162,82,0.12)", color: "#a07a2a" },
             ].map((stat, i) => (
               <div key={i} style={{ backgroundColor: stat.bg, borderRadius: 10, padding: 16 }}>
@@ -361,7 +399,7 @@ export function EntregadorDashboard() {
                       {entrega.farmacia}
                     </span>
                     <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: 11, color: "#888" }}>
-                      {entrega.criadoEm}
+                      {new Date(entrega.data).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center gap-1 mb-1">

@@ -20,24 +20,8 @@ const carouselImages = [
   { id: "6", image: "src/images/b11.jpg",    alt: "Saúde e bem-estar" },
 ];
 
-/* ── MEDICAMENTOS ── */
-const topMedicamentos = [
-  { id: "1", name: "Paracetamol 500mg",  price: 1500, farmacia: "Farmácia Central",    image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.8, stock: 150 },
-  { id: "2", name: "Ibuprofeno 400mg",   price: 2000, farmacia: "Farmácia Saúde",      image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.6, stock: 200 },
-  { id: "3", name: "Amoxicilina 500mg",  price: 3500, farmacia: "Farmácia Vida",       image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.9, stock: 80 },
-  { id: "4", name: "Vitamina C 1000mg", price: 2500, farmacia: "Farmácia Bem-Estar", image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.7, stock: 300 },
-  { id: "5", name: "Dipirona 500mg",     price: 1200, farmacia: "Farmácia Saúde",      image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.5, stock: 180 },
-  { id: "6", name: "Omeprazol 20mg",     price: 1800, farmacia: "Farmácia Central",    image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.7, stock: 220 },
-  { id: "7", name: "Losartana 50mg",     price: 2800, farmacia: "Farmácia Vida",       image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.8, stock: 90 },
-  { id: "8", name: "Metformina 850mg",   price: 2200, farmacia: "Farmácia Bem-Estar", image: "https://images.unsplash.com/photo-1646392206581-2527b1cae5cb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaWxscyUyMG1lZGljYXRpb24lMjBwaGFybWFjeXxlbnwxfHx8fDE3NjkxNjM5MDB8MA&ixlib=rb-4.1.0&q=80&w=400", rating: 4.6, stock: 150 },
-];
-
-/* ── FARMÁCIAS ── */
-const topFarmacias = [
-  { id: "1", name: "Farmácia Central",    location: "Luanda, Maianga",   rating: 4.8, deliveryTime: "20-30 min", image: "https://images.unsplash.com/photo-1765031092161-a9ebe556117e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaGFybWFjeSUyMHN0b3JlJTIwaW50ZXJpb3J8ZW58MXx8fHwxNzY5MTI4NzIyfDA&ixlib=rb-4.1.0&q=80&w=400", products: 1250 },
-  { id: "2", name: "Farmácia Saúde Plus", location: "Luanda, Talatona",  rating: 4.9, deliveryTime: "15-25 min", image: "https://images.unsplash.com/photo-1765031092161-a9ebe556117e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaGFybWFjeSUyMHN0b3JlJTIgaW50ZXJpb3J8ZW58MXx8fHwxNzY5MTI4NzIyfDA&ixlib=rb-4.1.0&q=80&w=400", products: 980 },
-  { id: "3", name: "Farmácia Vida",       location: "Luanda, Viana",     rating: 4.7, deliveryTime: "25-35 min", image: "https://images.unsplash.com/photo-1765031092161-a9ebe556117e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaGFybWFjeSUyMHN0b3JlJTIgaW50ZXJpb3J8ZW58MXx8fHwxNzY5MTI4NzIyfDA&ixlib=rb-4.1.0&q=80&w=400", products: 1100 },
-];
+import { useEffect, useState } from "react";
+import { useFarmaciasStore } from "../store/farmaciasStore";
 
 /* ─── ESTILOS INLINE GLOBAIS ─── */
 const GREEN  = "#2c5530";
@@ -46,6 +30,29 @@ const BG     = "#faf7f2";
 const TEXT   = "#2c3e2c";
 
 export function Home() {
+  const { farmacias, fetchFarmacias } = useFarmaciasStore();
+  const [medicamentos, setMedicamentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await fetchFarmacias();
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/public/medicamentos`);
+        const data = await res.json();
+        if (data.success) {
+          setMedicamentos(data.data.slice(0, 8)); // Top 8
+        }
+      } catch (err) {
+        console.error("Erro ao carregar medicamentos", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [fetchFarmacias]);
+
   return (
     <div className="twala-page-enter">
 
@@ -240,7 +247,7 @@ export function Home() {
               loop={true}
               className="catalogo-swiper"
             >
-              {topMedicamentos.map((produto) => (
+              {medicamentos.map((produto) => (
                 <SwiperSlide key={produto.id}>
                   <MedicamentoCard produto={produto} />
                 </SwiperSlide>
@@ -372,7 +379,7 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {topMedicamentos.slice(0, 4).map((med) => (
+            {medicamentos.slice(0, 4).map((med) => (
               <MedicamentoCard key={med.id} produto={med} />
             ))}
           </div>
@@ -402,7 +409,7 @@ export function Home() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            {topFarmacias.map((farmacia) => (
+            {farmacias.slice(0, 3).map((farmacia) => (
               <div
                 key={farmacia.id}
                 className="rounded-xl overflow-hidden transition-all duration-300"
@@ -425,7 +432,7 @@ export function Home() {
                 <div className="h-40 overflow-hidden">
                   <ImageWithFallback
                     src={farmacia.image}
-                    alt={farmacia.name}
+                    alt={farmacia.nome}
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                   />
                 </div>
@@ -434,11 +441,11 @@ export function Home() {
                     className="mb-2"
                     style={{ fontFamily: "'Poppins', sans-serif", fontWeight: 500, color: TEXT, fontSize: 17 }}
                   >
-                    {farmacia.name}
+                    {farmacia.nome}
                   </h3>
                   <div className="flex items-center gap-2 mb-3" style={{ color: "#5a6b5a" }}>
                     <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: GREEN }} />
-                    <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: 13 }}>{farmacia.location}</span>
+                    <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: 13 }}>{farmacia.provincia}, {farmacia.municipio}</span>
                   </div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-1">
@@ -466,6 +473,7 @@ export function Home() {
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
@@ -646,7 +654,7 @@ export function Home() {
 }
 
 /* ── COMPONENTE CARD DE MEDICAMENTO ── */
-function MedicamentoCard({ produto }: { produto: typeof topMedicamentos[0] }) {
+function MedicamentoCard({ produto }: { produto: any }) {
   return (
     <div
       className="rounded-xl overflow-hidden h-full transition-all duration-300 flex flex-col"

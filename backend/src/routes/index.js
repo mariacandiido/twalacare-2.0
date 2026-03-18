@@ -8,6 +8,8 @@ const farmaciaRoutes = require('./farmaciaRoutes');
 const entregadorRoutes = require('./entregadorRoutes');
 const notificacaoRoutes = require('./notificacaoRoutes');
 const categoriaRoutes = require('./categoriaRoutes');
+const publicRoutes = require('./publicRoutes');
+const medicamentoRoutes = require('./medicamentoRoutes');
 
 const router = express.Router();
 
@@ -17,5 +19,7 @@ router.use('/farmacia', farmaciaRoutes);
 router.use('/entregador', entregadorRoutes);
 router.use('/notificacoes', notificacaoRoutes);
 router.use('/categorias', categoriaRoutes);
+router.use('/public', publicRoutes);
+router.use('/medicamentos', medicamentoRoutes);
 
 module.exports = router;

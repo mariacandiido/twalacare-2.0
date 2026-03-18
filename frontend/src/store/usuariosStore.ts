@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 export interface Usuario {
   id: string;
   nome: string;
   email: string;
-  tipo: "farmacia" | "entregador" | "admin";
+  tipo: "cliente" | "farmacia" | "entregador" | "admin";
   telefone: string;
   dataRegistro: string;
   status: "ativo" | "inativo";
@@ -13,100 +12,84 @@ export interface Usuario {
 
 interface UsuariosStore {
   usuarios: Usuario[];
-  adicionarUsuario: (usuario: Omit<Usuario, "id" | "dataRegistro">) => void;
-  editarUsuario: (id: string, dados: Partial<Usuario>) => void;
-  deletarUsuario: (id: string) => void;
-  toggleStatus: (id: string) => void;
-  obterUsuario: (id: string) => Usuario | undefined;
-  obterTodos: () => Usuario[];
-  obterPorTipo: (tipo: Usuario["tipo"]) => Usuario[];
+  isLoading: boolean;
+  error: string | null;
+  fetchUsuarios: () => Promise<void>;
+  adicionarUsuario: (usuario: Omit<Usuario, "id" | "dataRegistro">) => Promise<boolean>;
+  deletarUsuario: (id: string) => Promise<boolean>;
+  toggleStatus: (id: string) => Promise<boolean>;
 }
 
-const usuariosIniciais: Usuario[] = [
-  {
-    id: "2",
-    nome: "Farmácia Central",
-    email: "central@pharmacy.com",
-    tipo: "farmacia",
-    telefone: "+244912345678",
-    dataRegistro: "2025-01-10",
-    status: "ativo",
+export const useUsuariosStore = create<UsuariosStore>((set, get) => ({
+  usuarios: [],
+  isLoading: false,
+  error: null,
+
+  fetchUsuarios: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const token = localStorage.getItem("twalacare_token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/usuarios`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        set({ usuarios: data.data });
+      }
+    } catch (err) {
+      set({ error: "Erro ao carregar usuários" });
+    } finally {
+      set({ isLoading: false });
+    }
   },
-  {
-    id: "3",
-    nome: "Carlos Entregador",
-    email: "carlos@delivery.com",
-    tipo: "entregador",
-    telefone: "+244987654321",
-    dataRegistro: "2025-01-05",
-    status: "ativo",
+
+  adicionarUsuario: async (usuario) => {
+     // Implementar se necessário, ou usar authService
+     return false;
   },
-  {
-    id: "admin-1",
-    nome: "Administrador",
-    email: "admin@twalcare.com",
-    tipo: "admin",
-    telefone: "+244900000000",
-    dataRegistro: "2024-12-01",
-    status: "ativo",
+
+  deletarUsuario: async (id) => {
+    try {
+      const token = localStorage.getItem("twalacare_token");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/usuarios/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await get().fetchUsuarios();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
+    }
   },
-];
 
-export const useUsuariosStore = create<UsuariosStore>()(
-  persist(
-    (set, get) => ({
-      usuarios: usuariosIniciais,
+  toggleStatus: async (id) => {
+    try {
+      const token = localStorage.getItem("twalacare_token");
+       // Encontrar usuario atual para inverter status
+      const u = get().usuarios.find(user => user.id === id);
+      if (!u) return false;
+      const novoStatus = u.status === 'ativo' ? 'inativo' : 'ativo';
 
-      adicionarUsuario: (usuario) => {
-        const novoUsuario: Usuario = {
-          ...usuario,
-          id: Date.now().toString(),
-          dataRegistro: new Date().toISOString().split("T")[0],
-        };
-        set((state) => ({
-          usuarios: [...state.usuarios, novoUsuario],
-        }));
-      },
-
-      editarUsuario: (id, dados) => {
-        set((state) => ({
-          usuarios: state.usuarios.map((u) =>
-            u.id === id ? { ...u, ...dados } : u,
-          ),
-        }));
-      },
-
-      deletarUsuario: (id) => {
-        set((state) => ({
-          usuarios: state.usuarios.filter((u) => u.id !== id),
-        }));
-      },
-
-      toggleStatus: (id) => {
-        set((state) => ({
-          usuarios: state.usuarios.map((u) =>
-            u.id === id
-              ? { ...u, status: u.status === "ativo" ? "inativo" : "ativo" }
-              : u,
-          ),
-        }));
-      },
-
-      obterUsuario: (id) => {
-        return get().usuarios.find((u) => u.id === id);
-      },
-
-      obterTodos: () => {
-        return get().usuarios;
-      },
-
-      obterPorTipo: (tipo) => {
-        return get().usuarios.filter((u) => u.tipo === tipo);
-      },
-    }),
-    {
-      name: "usuarios-storage",
-      version: 1,
-    },
-  ),
-);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/admin/usuarios/${id}`, {
+        method: "PATCH",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ status: novoStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        await get().fetchUsuarios();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
+    }
+  },
+}));
