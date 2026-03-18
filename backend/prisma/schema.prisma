@@ -1,0 +1,395 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User Model
+model User {
+  id            Int        @id @default(autoincrement())
+  nome          String     @db.VarChar(150)
+  email         String     @unique @db.VarChar(180)
+  password_hash String     @db.VarChar(255)
+  telefone      String?    @db.VarChar(30)
+  tipo          UserType
+  status        UserStatus @default(ATIVO)
+
+  data_nascimento DateTime?
+  veiculo         String?   @db.VarChar(50)
+  placa_veiculo   String?   @db.VarChar(20)
+  cargo           String?   @db.VarChar(80)
+  departamento    String?   @db.VarChar(80)
+
+  // Password Recovery
+  resetPasswordToken   String?   @db.VarChar(255)
+  resetPasswordExpires DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Farmacia              Farmacia?
+  Enderecos             Endereco[]
+  Pedidos               Pedido[]
+  RefreshTokens         RefreshToken[]
+  EntregasAsEntregador  Entrega[]         @relation("EntregadorEntrega")
+  Receitas              Receita[]
+  AvaliacoesFeitas      Avaliacao[]       @relation("AvaliacoesFeitas")
+  Notificacoes          Notificacao[]
+  HistoricosAtualizados HistoricoPedido[]
+
+  @@map("users")
+}
+
+enum UserType {
+  CLIENTE
+  FARMACIA
+  ENTREGADOR
+  ADMIN
+}
+
+enum UserStatus {
+  ATIVO
+  INATIVO
+  SUSPENSO
+  PENDENTE_APROVACAO
+}
+
+// Endereco Model (Dynamic Locations for Users, Pharmacies, and Orders)
+model Endereco {
+  id            Int      @id @default(autoincrement())
+  user_id       Int?
+  provincia     String   @db.VarChar(80)
+  municipio     String   @db.VarChar(80)
+  bairro        String?  @db.VarChar(80)
+  rua           String?  @db.VarChar(120)
+  num_edificio  String?  @db.VarChar(20)
+  codigo_postal String?  @db.VarChar(20)
+  referencia    String?  @db.VarChar(255)
+  latitude      Decimal? @db.Decimal(10, 8)
+  longitude     Decimal? @db.Decimal(11, 8)
+  is_padrao     Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  User     User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Farmacia Farmacia?
+  Pedidos  Pedido[]
+
+  @@map("enderecos")
+}
+
+// Farmacia Model
+model Farmacia {
+  id                    Int     @id @default(autoincrement())
+  user_id               Int     @unique
+  endereco_id           Int?    @unique
+  nome                  String  @db.VarChar(150)
+  nif                   String? @db.VarChar(30)
+  licenca_funcionamento String? @db.VarChar(80)
+
+  horario_abertura   String? @db.VarChar(10)
+  horario_fechamento String? @db.VarChar(10)
+
+  farmaceutico_nome   String? @db.VarChar(120)
+  farmaceutico_cedula String? @db.VarChar(40)
+  farmaceutico_tel    String? @db.VarChar(30)
+
+  avaliacao       Decimal   @default(0) @db.Decimal(3, 2)
+  aprovada        Boolean   @default(false)
+  data_aprovacao  DateTime?
+  rejeitada       Boolean   @default(false)
+  motivo_rejeicao String?
+  image_url       String?   @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  User         User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  Endereco     Endereco?     @relation(fields: [endereco_id], references: [id])
+  Medicamentos Medicamento[]
+  PedidoItems  PedidoItem[]
+  Receitas     Receita[]
+  Avaliacoes   Avaliacao[]   @relation("AvaliacoesFarmacia")
+
+  @@map("farmacias")
+}
+
+// CategoriaMedicamento Model (Dynamic categories)
+model CategoriaMedicamento {
+  id        Int     @id @default(autoincrement())
+  nome      String  @unique @db.VarChar(100)
+  descricao String? @db.Text
+  ativo     Boolean @default(true)
+  image_url String? @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Medicamentos Medicamento[]
+
+  @@map("categorias_medicamento")
+}
+
+// Medicamento Model
+model Medicamento {
+  id                    Int     @id @default(autoincrement())
+  farmacia_id           Int
+  categoria_id          Int?
+  nome                  String  @db.VarChar(150)
+  descricao             String? @db.Text
+  preco                 Decimal @db.Decimal(12, 2)
+  stock                 Int     @default(0)
+  requires_prescription Boolean @default(false)
+  image_url             String? @db.VarChar(500)
+  rating                Decimal @default(0) @db.Decimal(3, 2)
+  ativo                 Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Farmacia    Farmacia              @relation(fields: [farmacia_id], references: [id], onDelete: Cascade)
+  Categoria   CategoriaMedicamento? @relation(fields: [categoria_id], references: [id], onDelete: SetNull)
+  PedidoItems PedidoItem[]
+  Avaliacoes  Avaliacao[]           @relation("AvaliacoesMedicamento")
+
+  @@map("medicamentos")
+}
+
+// Pedido Model
+model Pedido {
+  id                    Int         @id @default(autoincrement())
+  cliente_id            Int
+  endereco_id           Int?
+  subtotal              Decimal     @db.Decimal(12, 2)
+  taxa_entrega          Decimal     @default(0) @db.Decimal(10, 2)
+  total                 Decimal     @db.Decimal(12, 2)
+  status                OrderStatus @default(PENDENTE)
+  data_entrega_estimada DateTime?
+  data_entrega          DateTime?
+
+  createdAt DateTime @default(now()) @map("data_pedido")
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Cliente     User              @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  Endereco    Endereco?         @relation(fields: [endereco_id], references: [id])
+  Pagamento   Pagamento?
+  PedidoItems PedidoItem[]
+  Entrega     Entrega?
+  Receitas    Receita[]
+  Historico   HistoricoPedido[]
+  Avaliacao   Avaliacao?
+
+  @@map("pedidos")
+}
+
+enum OrderStatus {
+  PENDENTE
+  CONFIRMADO
+  EM_PREPARACAO
+  PRONTO
+  EM_TRANSITO
+  ENTREGUE
+  CANCELADO
+}
+
+// Pagamento Model
+model Pagamento {
+  id               Int             @id @default(autoincrement())
+  pedido_id        Int             @unique
+  metodo_pagamento MetodoPagamento
+  status           StatusPagamento @default(PENDENTE)
+  valor            Decimal         @db.Decimal(12, 2)
+  transacao_id     String?         @db.VarChar(100)
+  comprovativo_url String?         @db.VarChar(500)
+  data_pagamento   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Pedido Pedido @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+
+  @@map("pagamentos")
+}
+
+enum MetodoPagamento {
+  MULTICAIXA_EXPRESS
+  TRANSFERENCIA_BANCARIA
+  TPA_NA_ENTREGA
+  DINHEIRO_NA_ENTREGA
+  CARTEIRA_DIGITAL
+}
+
+enum StatusPagamento {
+  PENDENTE
+  CONCLUIDO
+  FALHOU
+  REEMBOLSADO
+}
+
+// HistoricoPedido Model (Status history)
+model HistoricoPedido {
+  id              Int          @id @default(autoincrement())
+  pedido_id       Int
+  status_anterior OrderStatus?
+  status_novo     OrderStatus
+  observacao      String?      @db.Text
+  atualizado_por  Int?
+
+  createdAt DateTime @default(now())
+
+  Pedido Pedido @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+  User   User?  @relation(fields: [atualizado_por], references: [id], onDelete: SetNull)
+
+  @@map("historico_pedidos")
+}
+
+// PedidoItem Model
+model PedidoItem {
+  id                    Int     @id @default(autoincrement())
+  pedido_id             Int
+  medicamento_id        Int
+  farmacia_id           Int
+  nome                  String  @db.VarChar(150)
+  preco_unitario        Decimal @db.Decimal(12, 2)
+  quantidade            Int
+  requires_prescription Boolean @default(false)
+
+  // Relations
+  Pedido      Pedido      @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+  Medicamento Medicamento @relation(fields: [medicamento_id], references: [id], onDelete: Cascade)
+  Farmacia    Farmacia    @relation(fields: [farmacia_id], references: [id], onDelete: Cascade)
+
+  @@map("pedido_itens")
+}
+
+// Entrega Model
+model Entrega {
+  id                 Int            @id @default(autoincrement())
+  pedido_id          Int            @unique
+  entregador_id      Int?
+  status             DeliveryStatus @default(DISPONIVEL)
+  valor_entrega      Decimal        @default(0) @db.Decimal(10, 2)
+  distancia_km       Decimal?       @db.Decimal(8, 2)
+  tempo_estimado_min Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Pedido     Pedido @relation(fields: [pedido_id], references: [id], onDelete: Cascade)
+  Entregador User?  @relation("EntregadorEntrega", fields: [entregador_id], references: [id])
+
+  @@map("entregas")
+}
+
+enum DeliveryStatus {
+  DISPONIVEL
+  ACEITO
+  COLETANDO
+  EM_TRANSITO
+  ENTREGUE
+  CANCELADO
+}
+
+// Receita Model
+model Receita {
+  id            Int           @id @default(autoincrement())
+  cliente_id    Int
+  pedido_id     Int?
+  farmacia_id   Int?
+  ficheiro_url  String?       @db.VarChar(500)
+  nome_ficheiro String?       @db.VarChar(255)
+  estado        ReceiptStatus @default(PENDENTE)
+  observacoes   String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  Cliente  User      @relation(fields: [cliente_id], references: [id], onDelete: Cascade)
+  Pedido   Pedido?   @relation(fields: [pedido_id], references: [id], onDelete: SetNull)
+  Farmacia Farmacia? @relation(fields: [farmacia_id], references: [id], onDelete: SetNull)
+
+  @@map("receitas")
+}
+
+enum ReceiptStatus {
+  PENDENTE
+  APROVADA
+  REJEITADA
+}
+
+// Avaliacao Model (Reviews for Pharmacies and Medicines)
+model Avaliacao {
+  id             Int     @id @default(autoincrement())
+  cliente_id     Int
+  farmacia_id    Int?
+  medicamento_id Int?
+  pedido_id      Int?    @unique
+  rating         Int     @db.TinyInt
+  comentario     String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Cliente     User         @relation("AvaliacoesFeitas", fields: [cliente_id], references: [id], onDelete: Cascade)
+  Farmacia    Farmacia?    @relation("AvaliacoesFarmacia", fields: [farmacia_id], references: [id], onDelete: Cascade)
+  Medicamento Medicamento? @relation("AvaliacoesMedicamento", fields: [medicamento_id], references: [id], onDelete: Cascade)
+  Pedido      Pedido?      @relation(fields: [pedido_id], references: [id], onDelete: SetNull)
+
+  @@map("avaliacoes")
+}
+
+// Notificacao Model (System/App Notifications)
+model Notificacao {
+  id       Int             @id @default(autoincrement())
+  user_id  Int
+  titulo   String          @db.VarChar(150)
+  mensagem String          @db.Text
+  tipo     TipoNotificacao @default(SISTEMA)
+  lida     Boolean         @default(false)
+  link_url String?         @db.VarChar(255)
+
+  createdAt DateTime @default(now())
+
+  User User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notificacoes")
+}
+
+enum TipoNotificacao {
+  SISTEMA
+  PEDIDO
+  RECEITA
+  PAGAMENTO
+  ENTREGA
+}
+
+// RefreshToken Model
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  token      String   @db.VarChar(500)
+  expires_at DateTime
+  revoked    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt @ignore
+
+  // Relations
+  User User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
