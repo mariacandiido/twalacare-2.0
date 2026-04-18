@@ -1,0 +1,378 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API TwalaCare",
+    "version": "2.0.0",
+    "description": "Documentação completa da API da plataforma TwalaCare para Cliente, Farmácia e Entregador."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Servidor Local"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    { "name": "Autenticação", "description": "Endpoints de registo e login" },
+    { "name": "Cliente", "description": "Funcionalidades estritas ao painel do Cliente" },
+    { "name": "Farmácia", "description": "Funcionalidades de gestão do painel da Farmácia" },
+    { "name": "Entregador", "description": "Painel de operações de Delivery" },
+    { "name": "Notificações", "description": "Sistema de alertas" }
+  ],
+  "paths": {
+    "/auth/register-cliente": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Registar um novo cliente",
+        "description": "Cria uma conta de cliente.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string", "example": "João Cliente" },
+                  "email": { "type": "string", "example": "cliente@email.com" },
+                  "password": { "type": "string", "example": "senhaSegura123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Cliente registado com sucesso" }
+        }
+      }
+    },
+    "/auth/register-farmacia": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Registar nova farmácia",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string", "example": "Farmácia Central" },
+                  "email": { "type": "string", "example": "farmacia@email.com" },
+                  "password": { "type": "string", "example": "senhaFarmacia" },
+                  "nif": { "type": "string", "example": "123456789" },
+                  "licenca_funcionamento": { "type": "string", "example": "LIC-9999" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Farmácia registada (pendente aprovação via Admin)" } }
+      }
+    },
+    "/auth/register-entregador": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Registar entregador",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": { "type": "string", "example": "Rui Entregador" },
+                  "email": { "type": "string", "example": "rui@email.com" },
+                  "password": { "type": "string", "example": "senha123" },
+                  "veiculo": { "type": "string", "example": "Moto" },
+                  "placa_veiculo": { "type": "string", "example": "LD-12-34-XY" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Conta de Entregador criada" } }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Autenticação"],
+        "summary": "Login na plataforma",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string", "example": "cliente@email.com" },
+                  "password": { "type": "string", "example": "senhaSegura123" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Sucesso - Devolve JWT Tokens" } }
+      }
+    },
+    "/auth/profile": {
+      "put": {
+        "tags": ["Autenticação"],
+        "summary": "Atualizar Perfil Base",
+        "responses": { "200": { "description": "Perfil atualizado" } }
+      }
+    },
+    "/auth/change-password": {
+      "put": {
+        "tags": ["Autenticação"],
+        "summary": "Alterar Senha",
+        "responses": { "200": { "description": "Senha atualizada com sucesso" } }
+      }
+    },
+    "/cliente/farmacias": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Listar farmácias cadastradas",
+        "responses": { "200": { "description": "Array de farmácias com endereço e avaliação" } }
+      }
+    },
+    "/cliente/medicamentos": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Visualizar medicamentos disponíveis",
+        "responses": { "200": { "description": "Lista de medicamentos ativos" } }
+      }
+    },
+    "/cliente/medicamentos/search": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Pesquisar medicamentos por termo",
+        "parameters": [
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Termo a pesquisar" }
+        ],
+        "responses": { "200": { "description": "Resultados de pesquisa filtrada" } }
+      }
+    },
+    "/cliente/carrinho": {
+      "post": {
+        "tags": ["Cliente"],
+        "summary": "Adicionar medicamentos ao carrinho",
+        "responses": { "200": { "description": "Item adicionado" } }
+      }
+    },
+    "/cliente/pedidos": {
+      "post": {
+        "tags": ["Cliente"],
+        "summary": "Criar um pedido e efetuar compra",
+        "responses": { "201": { "description": "Checkout gerado" } }
+      }
+    },
+    "/cliente/pedidos/{id}/receita": {
+      "post": {
+        "tags": ["Cliente"],
+        "summary": "Enviar receita médica para medicamentos limitados",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Upload com sucesso" } }
+      }
+    },
+    "/cliente/pedidos/{id}/status": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Acompanhar status do pedido",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Progresso e logs actuais" } }
+      }
+    },
+    "/cliente/pedidos/historico": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Visualizar histórico de compras",
+        "responses": { "200": { "description": "Lista de pedidos gerados" } }
+      }
+    },
+    "/cliente/avaliacoes": {
+      "post": {
+        "tags": ["Cliente"],
+        "summary": "Avaliar farmácias ou medicamentos do pedido concluído",
+        "responses": { "201": { "description": "Avaliação guardada com sucesso" } }
+      }
+    },
+    "/cliente/enderecos": {
+      "get": {
+        "tags": ["Cliente"],
+        "summary": "Gerir Endereços listando moradas",
+        "responses": { "200": { "description": "Lista de enderecos devolvida" } }
+      },
+      "post": {
+        "tags": ["Cliente"],
+        "summary": "Cadastrar endereço de entrega novo",
+        "responses": { "201": { "description": "Endereço cadastrado" } }
+      }
+    },
+    "/farmacia/perfil": {
+      "put": {
+        "tags": ["Farmácia"],
+        "summary": "Atualizar informações da Farmácia (Lojas e Gestores)",
+        "responses": { "200": { "description": "Perfil e configurações atualizados." } }
+      }
+    },
+    "/farmacia/medicamentos": {
+      "post": {
+        "tags": ["Farmácia"],
+        "summary": "Cadastrar medicamento (Com upload de imagem `multipart/form-data`)",
+        "responses": { "201": { "description": "Medicamento adicionado nativamente" } }
+      },
+      "get": {
+        "tags": ["Farmácia"],
+        "summary": "Listar os medicamentos desta farmácia",
+        "responses": { "200": { "description": "Relatório de catálogo com stock e categorias" } }
+      }
+    },
+    "/farmacia/medicamentos/{id}": {
+      "put": {
+        "tags": ["Farmácia"],
+        "summary": "Editar medicamento, atualizar imagem, classe, stock ou preço",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Medicamento atualizado" } }
+      },
+      "delete": {
+        "tags": ["Farmácia"],
+        "summary": "Remover/Desativar medicamento do painel",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Medicamento excluido virtualmente" } }
+      }
+    },
+    "/farmacia/pedidos": {
+      "get": {
+        "tags": ["Farmácia"],
+        "summary": "Receber pedidos de clientes (Fila de Trabalho)",
+        "responses": { "200": { "description": "Retorna lista de pedidos PENDENTES." } }
+      }
+    },
+    "/farmacia/pedidos/{id}": {
+      "get": {
+        "tags": ["Farmácia"],
+        "summary": "Visualizar detalhes avançados de um pedido",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Informações do comprador e itens" } }
+      }
+    },
+    "/farmacia/pedidos/{id}/status": {
+      "put": {
+        "tags": ["Farmácia"],
+        "summary": "Aceitar, rejeitar ou preparar pedido",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Mudança de status reportada e armazenada no HistoricoPedidos" } }
+      }
+    },
+    "/farmacia/receitas/{id}/verificar": {
+      "post": {
+        "tags": ["Farmácia"],
+        "summary": "Verificar ou validar receita médica",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Receita declarada viável via painel" } }
+      }
+    },
+    "/farmacia/entregadores-disponiveis": {
+      "get": {
+        "tags": ["Farmácia"],
+        "summary": "Visualizar lista de entregadores disponíveis próximos",
+        "responses": { "200": { "description": "Retorna matriz de utilizadores Entregadores" } }
+      }
+    },
+    "/farmacia/pedidos/{id}/atribuir-entregador": {
+      "post": {
+        "tags": ["Farmácia"],
+        "summary": "Atribuir um entregador específico ao pedido despachado",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Transporte assinalado e Notificação ativada" } }
+      }
+    },
+    "/farmacia/historico-pedidos": {
+      "get": {
+        "tags": ["Farmácia"],
+        "summary": "Listar histórico consolidado de pedidos da loja",
+        "responses": { "200": { "description": "Logs completos do comércio" } }
+      }
+    },
+    "/entregador/perfil": {
+      "put": {
+        "tags": ["Entregador"],
+        "summary": "Atualizar perfil do motorista/entregador",
+        "responses": { "200": { "description": "Perfil modificado" } }
+      }
+    },
+    "/entregador/disponibilidade": {
+      "put": {
+        "tags": ["Entregador"],
+        "summary": "Marcar status como disponível ou ocupado",
+        "responses": { "200": { "description": "Muda a visibilidade do Entregador nas Farmácias" } }
+      }
+    },
+    "/entregador/pedidos-atribuidos": {
+      "get": {
+        "tags": ["Entregador"],
+        "summary": "Visualizar fila de pedidos designados",
+        "responses": { "200": { "description": "Listagem que aguardam Coleta (Pick-up)" } }
+      }
+    },
+    "/entregador/pedidos/{id}/iniciar": {
+      "put": {
+        "tags": ["Entregador"],
+        "summary": "Aceitar encargo logístico e iniciar entrega",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Transição para EM_TRANSITO declarada" } }
+      }
+    },
+    "/entregador/pedidos/{id}/status": {
+      "put": {
+        "tags": ["Entregador"],
+        "summary": "Injetar updates do percurso (ex: atrasos de trânsito)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Gera log e notifica cliente automaticamente via socket ou poll" } }
+      }
+    },
+    "/entregador/pedidos/{id}/concluir": {
+      "put": {
+        "tags": ["Entregador"],
+        "summary": "Marcar pacote como ENTREGUE no destino final",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Finaliza o ciclo utilitário" } }
+      }
+    },
+    "/entregador/historico": {
+      "get": {
+        "tags": ["Entregador"],
+        "summary": "Visualizar histórico de entregas executadas em balanço mensal/diário",
+        "responses": { "200": { "description": "Relatório de logs efetuados em conformidade pelo trabalhador" } }
+      }
+    },
+    "/notificacoes": {
+      "get": {
+        "tags": ["Notificações"],
+        "summary": "Listar Notificações Pessoais do Utilizador",
+        "responses": { "200": { "description": "Histograma de Inbox Alerts" } }
+      }
+    },
+    "/notificacoes/{id}/lida": {
+      "put": {
+        "tags": ["Notificações"],
+        "summary": "Marcar Notificação como Lida",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": {"type": "integer"} }],
+        "responses": { "200": { "description": "Altera a flag Lida de False -> True" } }
+      }
+    }
+  }
+}
